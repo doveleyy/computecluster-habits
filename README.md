@@ -59,7 +59,7 @@ services/habit_tracker/
   budget.py               spending, daily allowances, savings targets, ledger
   study.py                named focus sessions and daily study totals
   progress.py             typed weekly summaries and saved event partitioning
-  state_probe.py          read-only fingerprint of every schema entry and row
+  state_probe.py          read-only hash of the records this version reads
   templates/              overview, water, budget, study and progress pages
   static/                 page styles and scripts
   tests/                  app, data, migration and authorization checks
@@ -115,13 +115,26 @@ To inspect a database without modifying it, run the read-only probe.
 python -m services.habit_tracker.state_probe /path/to/disposable/habit-tracker.db
 ```
 
-The output contains counts and hashes of every schema entry and stored row,
-including `sqlite_sequence`. It contains no drink, money or study records and
-no owner keys. Compare complete output before and after startup against a
-disposable copy of old state. This release adds no schema migration. Production
-cutover requires the operator's verified backup, owner checks and current-data
-recovery plan. The runtime image includes this probe, so the operator can use
-it for managed upgrade compatibility checks without a platform source checkout.
+The output contains a row count and a hash for each table that this version
+reads. `TABLES` in the probe declares those tables, their columns and their
+keys. Each hash covers only the declared columns, in key order, so a database
+whose columns were appended by `ALTER TABLE` gives the same output as a fresh
+one. The output contains no drink, money or study records and no owner keys.
+
+A backward-compatible migration that adds a nullable or defaulted column, a
+table or an index leaves the output unchanged. A changed, added or deleted
+record changes it. A missing declared table or column, which a destructive
+migration causes, makes the probe fail, as does a failed SQLite integrity or
+foreign-key check. SQL text, column order, `sqlite_sequence` and planner
+statistics are not part of the output. NULL values and empty tables are not
+encoded, so a later release can add a new nullable column or table to `TABLES`
+and still print the same output for existing records. Keep a column added with
+a non-NULL default out of `TABLES` until the probe omits that default. Compare
+complete output before and after startup against a disposable copy of old
+state. This release adds no schema migration. Production cutover requires the
+operator's verified backup, owner checks and current-data recovery plan. The
+runtime image includes this probe, so the operator can use it for managed
+upgrade compatibility checks without a platform source checkout.
 
 ## Behavior reference
 
