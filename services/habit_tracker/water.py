@@ -9,7 +9,7 @@ from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from services.common.sqlite import connect
+from services.habit_tracker.sqlite import connect
 
 
 @dataclass(frozen=True)
@@ -178,6 +178,14 @@ class WaterRepository:
     def ensure_user(self, identity: str, display_name: str) -> None:
         now = datetime.now(UTC).isoformat()
         with self._connect() as connection:
+            # Every request ensures its owner; a read keeps current owners off
+            # the write lock.
+            if connection.execute(
+                "SELECT 1 FROM users JOIN user_settings USING (identity) "
+                "WHERE identity = ? AND display_name = ?",
+                (identity, display_name),
+            ).fetchone():
+                return
             connection.execute(
                 """
                 INSERT INTO users(identity, display_name, created_at)
@@ -325,7 +333,13 @@ class WaterRepository:
         return cursor.rowcount == 1
 
     def drinks_for_day(self, identity: str, day: date) -> list[Drink]:
-        start, end = self._utc_bounds(day)
+        return self.drinks_in_range(identity, day, day + timedelta(days=1))
+
+    def drinks_in_range(
+        self, identity: str, first: date, end_exclusive: date
+    ) -> list[Drink]:
+        start, _ = self._utc_bounds(first)
+        end, _ = self._utc_bounds(end_exclusive)
         with self._connect() as connection:
             rows = connection.execute(
                 """

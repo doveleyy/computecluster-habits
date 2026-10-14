@@ -1,0 +1,7 @@
+-r services/habit_tracker/requirements.txt
+./vendor/home_platform_client-0.1.1-py3-none-any.whl
+./vendor/home_platform_devtools-0.1.1-py3-none-any.whl
+pytest==9.1.1
+httpx==0.28.1
+ruff==0.14.14
+mypy==1.20.2

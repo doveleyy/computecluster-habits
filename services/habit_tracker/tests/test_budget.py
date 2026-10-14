@@ -3,22 +3,13 @@ from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from fastapi.testclient import TestClient
-
 from services.habit_tracker.budget import BudgetRepository
-from services.habit_tracker.main import create_app
+from services.habit_tracker.tests.members import client, owner
 from services.habit_tracker.water import WaterRepository
 
 
-def client(tmp_path: Path, user: str = "member@example.test") -> TestClient:
-    return TestClient(
-        create_app(tmp_path / "habits.db", allow_dev_identity=True),
-        headers={"X-Habit-Tracker-Dev-User": user},
-    )
-
-
 def test_budget_page_is_a_tab_in_the_habit_tracker(tmp_path: Path) -> None:
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "habits.db") as test_client:
         water = test_client.get("/water")
         budget = test_client.get("/budget")
 
@@ -28,16 +19,16 @@ def test_budget_page_is_a_tab_in_the_habit_tracker(tmp_path: Path) -> None:
     assert 'id="water-link"' in budget.text
     assert "Sinking fund" in budget.text
     assert "Budget ledger · latest 5" in budget.text
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "habits.db") as test_client:
         script = test_client.get("/static/budget.js").text
     assert 'request("/ledger?limit=5")' in script
     assert "if (!adjustment)" in script
-    assert "ledgerTimestamp.format" in script
-    assert "ledgerDate.format" in script
+    assert "habitFormat.stamp(item.occurred_at)" in script
+    assert "habitFormat.day(item.date)" in script
 
 
 def test_daily_spending_and_fund_movements_are_separate(tmp_path: Path) -> None:
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "habits.db") as test_client:
         initial = test_client.get("/api/budget/summary")
         budget = test_client.put(
             "/api/budget/daily-budget", json={"amount_cents": 2000}
@@ -82,7 +73,7 @@ def test_daily_spending_and_fund_movements_are_separate(tmp_path: Path) -> None:
 
 
 def test_today_overage_reduces_fund_immediately(tmp_path: Path) -> None:
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "habits.db") as test_client:
         test_client.put("/api/budget/daily-budget", json={"amount_cents": 1000})
         test_client.post(
             "/api/budget/transactions",
@@ -107,7 +98,7 @@ def test_backdated_spending_recalculates_fund_and_can_be_removed(
     timezone = ZoneInfo("Asia/Singapore")
     yesterday = datetime.now(timezone).date() - timedelta(days=1)
     tomorrow = datetime.now(timezone).date() + timedelta(days=1)
-    identity = "development:member@example.test"
+    identity = owner("member@example.test")
     water = WaterRepository(path, timezone)
     budget = BudgetRepository(path, timezone)
     water.initialize()
@@ -115,7 +106,7 @@ def test_backdated_spending_recalculates_fund_and_can_be_removed(
     water.ensure_user(identity, "member")
     budget.ensure_user(identity, yesterday)
 
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "habits.db") as test_client:
         created = test_client.post(
             "/api/budget/transactions",
             json={
@@ -167,7 +158,7 @@ def test_backdated_fund_movement_has_a_real_recording_time(tmp_path: Path) -> No
     path = tmp_path / "habits.db"
     timezone = ZoneInfo("Asia/Singapore")
     yesterday = datetime.now(timezone).date() - timedelta(days=1)
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "habits.db") as test_client:
         test_client.get("/api/budget/summary")
         with sqlite3.connect(path) as connection:
             connection.execute(
@@ -212,7 +203,7 @@ def test_backdated_fund_movement_has_a_real_recording_time(tmp_path: Path) -> No
 
 
 def test_budget_transaction_validation_and_owner_isolation(tmp_path: Path) -> None:
-    with client(tmp_path) as first:
+    with client(tmp_path / "habits.db") as first:
         created = first.post(
             "/api/budget/transactions",
             json={"kind": "fund_redemption", "amount_cents": 250},
@@ -222,7 +213,7 @@ def test_budget_transaction_validation_and_owner_isolation(tmp_path: Path) -> No
             json={"kind": "unknown", "amount_cents": 250},
         )
 
-    with client(tmp_path, "someone-else@example.test") as second:
+    with client(tmp_path / "habits.db", "someone-else@example.test") as second:
         summary = second.get("/api/budget/summary")
         deletion = second.delete(f"/api/budget/transactions/{created['id']}")
 
@@ -239,7 +230,7 @@ def test_completed_days_settle_using_their_historical_budget(tmp_path: Path) -> 
     budget = BudgetRepository(database_path, timezone)
     water.initialize()
     budget.initialize()
-    identity = "development:member@example.test"
+    identity = owner("member@example.test")
     water.ensure_user(identity, "member")
     budget.ensure_user(identity, date(2026, 9, 22))
     budget.set_daily_budget(identity, date(2026, 9, 22), 2000)
@@ -292,7 +283,7 @@ def test_daily_budget_carries_forward_until_explicitly_changed(
     budget = BudgetRepository(database_path, timezone)
     water.initialize()
     budget.initialize()
-    identity = "development:member@example.test"
+    identity = owner("member@example.test")
     water.ensure_user(identity, "member")
     budget.ensure_user(identity, date(2026, 9, 22))
     budget.set_daily_budget(identity, date(2026, 9, 22), 2000)
@@ -307,7 +298,7 @@ def test_daily_budget_carries_forward_until_explicitly_changed(
 def test_every_same_day_budget_adjustment_is_preserved_in_the_ledger(
     tmp_path: Path,
 ) -> None:
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "habits.db") as test_client:
         first = test_client.put("/api/budget/daily-budget", json={"amount_cents": 800})
         second = test_client.put("/api/budget/daily-budget", json={"amount_cents": 650})
         unchanged = test_client.put(
@@ -339,7 +330,7 @@ def test_budget_ledger_limit_keeps_history_and_uses_typed_dates(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "habits.db"
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "habits.db") as test_client:
         for amount in (900, 800, 700, 600, 500, 400):
             assert (
                 test_client.put(
@@ -368,7 +359,7 @@ def test_budget_ledger_limit_keeps_history_and_uses_typed_dates(
 
 
 def test_spending_carries_a_category(tmp_path: Path) -> None:
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "habits.db") as test_client:
         lunch = test_client.post(
             "/api/budget/transactions",
             json={
@@ -418,10 +409,10 @@ def test_previous_day_budget_analysis_breaks_down_spending_categories(
 ) -> None:
     database_path = tmp_path / "habits.db"
     timezone = ZoneInfo("Asia/Singapore")
-    identity = "development:member@example.test"
+    identity = owner("member@example.test")
     previous_day = datetime.now(timezone).date() - timedelta(days=1)
     occurred_at = datetime.combine(previous_day, time(12), timezone).astimezone(UTC)
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "habits.db") as test_client:
         assert test_client.get("/api/budget/summary").status_code == 200
         with sqlite3.connect(database_path) as connection:
             connection.executemany(
@@ -468,7 +459,7 @@ def test_previous_day_budget_analysis_breaks_down_spending_categories(
 
 
 def test_only_daily_spending_carries_a_category(tmp_path: Path) -> None:
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "habits.db") as test_client:
         redemption = test_client.post(
             "/api/budget/transactions",
             json={
@@ -502,7 +493,7 @@ def test_existing_transactions_migrate_to_the_other_category(tmp_path: Path) -> 
     timezone = ZoneInfo("Asia/Singapore")
     water = WaterRepository(database_path, timezone)
     water.initialize()
-    identity = "development:legacy@example.test"
+    identity = owner("legacy@example.test")
     water.ensure_user(identity, "legacy")
     with sqlite3.connect(database_path) as connection:
         connection.executescript(
@@ -531,7 +522,7 @@ def test_existing_transactions_migrate_to_the_other_category(tmp_path: Path) -> 
 
 
 def test_new_account_starts_with_ten_dollar_daily_budget(tmp_path: Path) -> None:
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "habits.db") as test_client:
         summary = test_client.get("/api/budget/summary").json()
         history = test_client.get("/api/budget/history?days=1").json()
 
@@ -549,7 +540,7 @@ def test_untouched_zero_placeholder_migrates_to_default_with_audit_event(
     budget = BudgetRepository(database_path, timezone)
     water.initialize()
     budget.initialize()
-    identity = "development:legacy@example.test"
+    identity = owner("legacy@example.test")
     water.ensure_user(identity, "legacy")
     budget.ensure_user(identity, date(2026, 9, 24))
     with sqlite3.connect(database_path) as connection:

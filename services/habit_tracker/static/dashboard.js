@@ -48,20 +48,12 @@ function renderSavings(summary) {
   $('#fund-total').textContent = format(balance);
   $('#fund-total').classList.toggle('negative', balance < 0);
   $('#goal-trigger').disabled = false;
-  $('#goal-trigger').textContent = goal ? `of ${format(goal)} · edit goal` : 'Set a savings goal ↗';
+  $('#goal-trigger').textContent = goal ? `of ${format(goal)} · edit goal` : 'Set a savings goal';
   $('#savings-status').textContent = !goal ? 'No goal yet' : ratio >= 1 ? 'Goal reached' : `${Math.round(clamp(ratio) * 100)}% saved`;
   $('#pig-fill').setAttribute('transform', `translate(0 ${32 - Math.round(clamp(ratio) * 16) * 2})`);
   const pending = summary.pending_surplus_cents ? ` ${format(summary.pending_surplus_cents)} pending from today.` : '';
   $('#savings-detail').textContent = (goal ? balance >= goal ? 'You reached your target. Make something good of it.' : `${format(goal - balance)} until your goal.` : 'Give your savings something to aim for.') + pending;
   progress('#savings-progress', ratio, goal ? `${format(balance)} of ${format(goal)}` : 'No savings goal set');
-}
-
-function studyTime(seconds) {
-  if (seconds === 0) return '0 min';
-  if (seconds < 60) return '<1 min';
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  return hours ? `${hours} hr${minutes ? ` ${minutes} min` : ''}` : `${minutes} min`;
 }
 
 function updateStudyCountdown() {
@@ -84,7 +76,7 @@ function updateStudyCountdown() {
 function renderStudy(study) {
   clearInterval(studyTimer);
   studyTimer = null;
-  $('#study-total').textContent = studyTime(study.today_seconds);
+  $('#study-total').textContent = habitFormat.duration(study.today_seconds);
   const active = study.active;
   $('#study-status').textContent = active ? 'Focusing' : 'Ready';
   $('#study-progress').setAttribute('aria-hidden', String(!active));
@@ -109,7 +101,7 @@ async function refresh() {
   try {
     const [water, summary, study] = await Promise.all([request('/water/today'),request('/budget/summary'),request('/study/summary')]);
     renderWater(water); renderSavings(summary); renderStudy(study);
-    $('#today').textContent = `${water.date} · ${config.timezone}`;
+    $('#today').textContent = `${habitFormat.day(water.date)} · ${config.timezone}`;
     $('#error').hidden = true;
     clearTimeout(resetTimer);
     resetTimer = setTimeout(refresh, Math.max(1000, new Date(summary.next_reset_at).getTime() - Date.now() + 1000));

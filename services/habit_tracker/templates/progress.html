@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#050505">
+  <title>Progress / Habit Tracker</title>
+  <link rel="stylesheet" href="__BASE_PATH__/static/progress.css?v=__VERSION__">
+  <link rel="stylesheet" href="__BASE_PATH__/static/shell.css?v=__VERSION__">
+</head>
+<body>
+  <iframe class="platform-bar" src="/platform/bar?app=habits" title="Home Platform apps" style="display:block;width:100%;height:41px;border:0;flex:none;background:#070707"></iframe>
+  <main class="shell">
+    <header class="top"><h1 class="title">habit tracker<span class="muted">.</span></h1><div class="user" id="user"></div></header>
+    __NAVIGATION__
+    <div id="progress-status" role="status"></div>
+    <div id="app" aria-busy="true"></div>
+  </main>
+  <script>window.habitConfig=__HABIT_TRACKER_CONFIG__;</script>
+  <script src="__BASE_PATH__/static/progress.js?v=__VERSION__" defer></script>
+</body>
+</html>

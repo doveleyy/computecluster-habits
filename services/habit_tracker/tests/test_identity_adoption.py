@@ -1,20 +1,27 @@
-"""Legacy rows follow a linked identity: all tables, all-or-nothing, retried."""
+"""Offline adoption moves legacy rows to a stable owner: every table, all or none.
+
+The gateway carries no Tailscale login, so adoption is no longer triggered by a
+request. An operator-reviewed mapping runs the repositories' adoption steps in
+one shared transaction, and the member then sees the data through the core.
+"""
 
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from zoneinfo import ZoneInfo
 
-from fastapi.testclient import TestClient
+import pytest
 
-from services.common.identity import Identity
-from services.habit_tracker import main
+from services.habit_tracker.budget import BudgetRepository
+from services.habit_tracker.study import StudyRepository
+from services.habit_tracker.tests.members import client, owner
+from services.habit_tracker.water import WaterRepository
 
-LOGIN = {"Tailscale-User-Login": "member@example.test"}
+TIMEZONE = ZoneInfo("Asia/Singapore")
 LEGACY = "tailscale:member@example.test"
-LINKED = Identity(key="home-platform:42", display_name="member")
+LINKED = owner("member@example.test")
 OWNER_TABLES = (
     ("users", "identity"),
     ("user_settings", "identity"),
@@ -40,103 +47,76 @@ def owners(database: Path) -> dict[str, set[str]]:
         }
 
 
+def repositories(
+    database: Path,
+) -> tuple[WaterRepository, BudgetRepository, StudyRepository]:
+    return (
+        WaterRepository(database, TIMEZONE),
+        BudgetRepository(database, TIMEZONE),
+        StudyRepository(database, TIMEZONE),
+    )
+
+
 def legacy_era(database: Path) -> None:
-    with TestClient(main.create_app(database), headers=LOGIN) as member:
-        assert (
-            member.put("/api/water/settings", json={"daily_goal_ml": 3000}).status_code
-            == 200
-        )
-        assert (
-            member.put(
-                "/api/budget/daily-budget", json={"amount_cents": 2500}
-            ).status_code
-            == 200
-        )
-        assert (
-            member.post("/api/water/drinks", json={"amount_ml": 250}).status_code == 201
-        )
-        assert (
-            member.post(
-                "/api/budget/transactions",
-                json={"kind": "daily_spend", "amount_cents": 500},
-            ).status_code
-            == 201
-        )
-        started = member.post(
-            "/api/study/sessions", json={"activity": "Reading", "duration_minutes": 25}
-        )
-        assert started.status_code == 201
-        assert (
-            member.post(f"/api/study/sessions/{started.json()['id']}/stop").status_code
-            == 200
-        )
-    assert owners(database)["study_sessions"] == {LEGACY}
+    water, budget, study = repositories(database)
+    for repository in (water, budget, study):
+        repository.initialize()
+    today = datetime.now(TIMEZONE).date()
+    water.ensure_user(LEGACY, "member")
+    budget.ensure_user(LEGACY, today)
+    water.set_goal(LEGACY, 3000)
+    budget.set_daily_budget(LEGACY, today, 2500)
+    water.add_drink(LEGACY, 250, "water", "normal", None)
+    budget.add_transaction(LEGACY, "daily_spend", 500, "Daily spending")
+    session = study.start(LEGACY, "Reading", 25)
+    study.finish(LEGACY, session.id, "stop")
+    assert owners(database) == {table: {LEGACY} for table, _ in OWNER_TABLES}
 
 
-def linked_app(database: Path) -> tuple[Any, list[str]]:
-    calls: list[str] = []
-
-    def resolve(subject: str) -> Identity:
-        calls.append(subject)
-        return LINKED
-
-    return main.create_app(database, identity_resolver=resolve), calls
-
-
-def failing_once(real: Callable[..., None]) -> Callable[..., None]:
-    attempts: list[int] = []
-
-    def adopt(*args: Any, **kwargs: Any) -> None:
-        attempts.append(1)
-        if len(attempts) == 1:
-            raise sqlite3.OperationalError("database is locked")
-        real(*args, **kwargs)
-
-    return adopt
+def adopt(database: Path, study: StudyRepository | None = None) -> None:
+    water, budget, default_study = repositories(database)
+    study = study or default_study
+    with water.transaction() as connection:
+        water.adopt_identity(connection, LEGACY, LINKED, "member@example.test")
+        budget.adopt_identity(connection, LEGACY, LINKED, datetime.now(TIMEZONE).date())
+        study.adopt_identity(connection, LEGACY, LINKED)
 
 
 def test_every_table_moves_to_the_linked_identity(tmp_path: Path) -> None:
     database = tmp_path / "habits.db"
     legacy_era(database)
-    app, _ = linked_app(database)
-    with TestClient(app, headers=LOGIN) as member:
-        today = member.get("/api/water/today")
-        study = member.get("/api/study/summary")
-    assert today.status_code == 200
-    assert today.json()["total_ml"] == 250
-    assert study.status_code == 200
-    assert [session["activity"] for session in study.json()["recent"]] == ["Reading"]
-    assert owners(database) == {table: {LINKED.key} for table, _ in OWNER_TABLES}
+    adopt(database)
+    adopt(database)
+    assert owners(database) == {table: {LINKED} for table, _ in OWNER_TABLES}
+    with client(database) as member:
+        today = member.get("/api/water/today").json()
+        study = member.get("/api/study/summary").json()
+        goal = member.get("/api/water/settings").json()
+        summary = member.get("/api/budget/summary").json()
+    assert today["total_ml"] == 250
+    assert [session["activity"] for session in study["recent"]] == ["Reading"]
+    assert goal["daily_goal_ml"] == 3000
+    assert summary["daily_budget_cents"] == 2500
+    assert summary["daily_spent_cents"] == 500
 
 
-def test_adoption_retried_after_one_failure_keeps_legacy_settings(
+def test_a_partial_adoption_failure_moves_nothing_and_retry_completes(
     tmp_path: Path,
 ) -> None:
     database = tmp_path / "habits.db"
     legacy_era(database)
-    app, calls = linked_app(database)
-    with TestClient(app, headers=LOGIN, raise_server_exceptions=False) as member:
-        budget = app.state.budget_repository
-        budget.adopt_identity = failing_once(budget.adopt_identity)
-        assert member.get("/api/water/today").status_code == 500
-        assert member.get("/api/water/today").status_code == 200
-        goal = member.get("/api/water/settings").json()
-        summary = member.get("/api/budget/summary").json()
-    assert goal["daily_goal_ml"] == 3000
-    assert summary["daily_budget_cents"] == 2500
-    assert owners(database)["budget_settings"] == {LINKED.key}
-    assert calls == ["member@example.test"] * 2, "a failed miss is not cached"
-
-
-def test_a_partial_adoption_failure_moves_nothing(tmp_path: Path) -> None:
-    database = tmp_path / "habits.db"
-    legacy_era(database)
     before = owners(database)
-    app, _ = linked_app(database)
-    with TestClient(app, headers=LOGIN, raise_server_exceptions=False) as member:
-        study = app.state.study_repository
-        study.adopt_identity = failing_once(study.adopt_identity)
-        assert member.get("/api/water/today").status_code == 500
-        assert owners(database) == before, "nothing moves until every table moves"
-        assert member.get("/api/water/today").json()["total_ml"] == 250
-    assert owners(database) == {table: {LINKED.key} for table, _ in OWNER_TABLES}
+    failing = StudyRepository(database, TIMEZONE)
+
+    def locked(*_: object) -> None:
+        raise sqlite3.OperationalError("database is locked")
+
+    failing.adopt_identity = locked  # type: ignore[method-assign]
+    with pytest.raises(sqlite3.OperationalError):
+        adopt(database, failing)
+    assert owners(database) == before, "nothing moves until every table moves"
+    adopt(database)
+    assert owners(database) == {table: {LINKED} for table, _ in OWNER_TABLES}
+    with client(database) as member:
+        assert member.get("/api/water/settings").json()["daily_goal_ml"] == 3000
+        assert member.get("/api/budget/summary").json()["daily_budget_cents"] == 2500

@@ -1,0 +1,13 @@
+*
+!services/
+!services/__init__.py
+!services/habit_tracker/
+!services/habit_tracker/*.py
+!services/habit_tracker/requirements.txt
+!services/habit_tracker/static/
+!services/habit_tracker/static/**
+!services/habit_tracker/templates/
+!services/habit_tracker/templates/**
+!vendor/
+!vendor/home_platform_client-0.1.1-py3-none-any.whl
+!Dockerfile

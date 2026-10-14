@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from services.common.sqlite import connect
+from services.habit_tracker.sqlite import connect
 
 TRANSACTION_KINDS = {"daily_spend", "fund_redemption", "fund_contribution"}
 SPEND_CATEGORIES = (
@@ -209,6 +209,14 @@ class BudgetRepository:
     def ensure_user(self, identity: str, local_day: date) -> None:
         now = datetime.now(UTC).isoformat()
         with self._connect() as connection:
+            if connection.execute(
+                "SELECT EXISTS (SELECT 1 FROM budget_settings WHERE identity = ?) "
+                "AND EXISTS (SELECT 1 FROM daily_budget_changes WHERE identity = ?) "
+                "AND EXISTS "
+                "(SELECT 1 FROM budget_adjustments WHERE owner_identity = ?)",
+                (identity, identity, identity),
+            ).fetchone()[0]:
+                return
             connection.execute(
                 """
                 INSERT INTO budget_settings(identity, currency, plan_start_date)
@@ -659,6 +667,59 @@ class BudgetRepository:
         if row is None:
             raise LookupError("budget user is not initialized")
         return str(row[0])
+
+    def spending_in_range(
+        self, identity: str, first: date, end_exclusive: date
+    ) -> list[BudgetTransaction]:
+        start, _ = self._utc_bounds(first)
+        end, _ = self._utc_bounds(end_exclusive)
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT id, kind, amount_cents, description, occurred_at, "
+                "category, recorded_at "
+                "FROM budget_transactions WHERE owner_identity = ? "
+                "AND kind = 'daily_spend' AND occurred_at >= ? AND occurred_at < ? "
+                "ORDER BY occurred_at DESC",
+                (identity, start.isoformat(), end.isoformat()),
+            ).fetchall()
+        return [
+            BudgetTransaction(
+                id=str(row[0]),
+                kind=str(row[1]),
+                amount_cents=int(row[2]),
+                description=str(row[3]),
+                occurred_at=datetime.fromisoformat(row[4]),
+                category=str(row[5]),
+                recorded_at=datetime.fromisoformat(row[6]) if row[6] else None,
+            )
+            for row in rows
+        ]
+
+    def allowances_in_range(
+        self, identity: str, first: date, end_exclusive: date
+    ) -> dict[date, int | None]:
+        plan_start = self.plan_start_date(identity)
+        with self._connect() as connection:
+            initial = connection.execute(
+                "SELECT amount_cents FROM daily_budget_changes WHERE identity = ? "
+                "AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1",
+                (identity, first.isoformat()),
+            ).fetchone()
+            changes = dict(
+                connection.execute(
+                    "SELECT effective_date, amount_cents FROM daily_budget_changes "
+                    "WHERE identity = ? AND effective_date > ? AND effective_date < ?",
+                    (identity, first.isoformat(), end_exclusive.isoformat()),
+                ).fetchall()
+            )
+        amount = int(initial[0]) if initial else None
+        result: dict[date, int | None] = {}
+        day = first
+        while day < end_exclusive:
+            amount = changes.get(day.isoformat(), amount)
+            result[day] = amount if day >= plan_start else None
+            day += timedelta(days=1)
+        return result
 
     def plan_start_date(self, identity: str) -> date:
         with self._connect() as connection:

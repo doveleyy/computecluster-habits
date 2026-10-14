@@ -1,0 +1,26 @@
+[project]
+name = "home-platform-habits"
+version = "0.13.0"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "RUF", "SIM", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["services/habit_tracker/tests", "tests"]
+pythonpath = ["."]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["services", "tools"]
+exclude = ["services/habit_tracker/tests/"]
+strict = true
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["hp_devtools.*"]
+ignore_missing_imports = true

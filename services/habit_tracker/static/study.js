@@ -16,17 +16,6 @@ async function request(path, options = {}) {
   return response.status === 204 ? null : response.json();
 }
 function show(text, error = false) { message.textContent = text; message.style.color = error ? "var(--danger)" : "var(--muted)"; }
-function duration(seconds) {
-  if (seconds < 60) return `${seconds} sec`;
-  const minutes = Math.floor(seconds / 60);
-  const remainder = seconds % 60;
-  const hours = Math.floor(minutes / 60);
-  const parts = [];
-  if (hours) parts.push(`${hours} hr`);
-  if (minutes % 60 || !hours) parts.push(`${minutes % 60} min`);
-  if (remainder) parts.push(`${remainder} sec`);
-  return parts.join(" ");
-}
 function clockText(milliseconds) {
   const seconds = Math.ceil(Math.max(0, milliseconds) / 1000);
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
@@ -40,7 +29,6 @@ function localDate(value) { return new Date(`${value}T12:00:00`); }
 function monthKey(value) { return value.slice(0, 7); }
 function shiftMonth(value, offset) { const [year, month] = value.split("-").map(Number); const shifted = new Date(year, month - 1 + offset, 1, 12); return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, "0")}`; }
 function lastDayOfMonth(value) { const [year, month] = value.split("-").map(Number); return new Date(year, month, 0, 12).getDate(); }
-function displayDate(value) { return localDate(value).toLocaleDateString([], {weekday:"long",day:"numeric",month:"long",year:"numeric"}); }
 function focusMinutes(seconds) { return seconds < 60 ? "<1 min" : `${Math.floor(seconds / 60)} min`; }
 function renderCalendar() {
   const month = state.calendarMonth;
@@ -53,8 +41,8 @@ function renderCalendar() {
   document.querySelector("#previous-month").disabled = state.busy;
   document.querySelector("#next-month").disabled = state.busy || month >= monthKey(state.todayDate);
   const selectedSeconds = summaries.get(state.selectedDate) || 0;
-  document.querySelector("#selected-date").textContent = displayDate(state.selectedDate);
-  document.querySelector("#selected-total").textContent = selectedSeconds ? duration(selectedSeconds) : "0 min";
+  document.querySelector("#selected-date").textContent = habitFormat.weekday(state.selectedDate);
+  document.querySelector("#selected-total").textContent = habitFormat.duration(selectedSeconds);
   const root = document.querySelector("#focus-calendar"); root.replaceChildren();
   for (let index = 0; index < firstWeekday; index++) { const spacer = document.createElement("span"); spacer.className = "calendar-spacer"; spacer.setAttribute("aria-hidden", "true"); root.append(spacer); }
   for (let day = 1; day <= daysInMonth; day++) {
@@ -64,7 +52,7 @@ function renderCalendar() {
     button.className = `calendar-day${seconds ? " focused" : ""}${date === state.selectedDate ? " selected" : ""}${date === state.todayDate ? " today" : ""}`;
     button.disabled = state.busy || date > state.todayDate;
     button.setAttribute("aria-pressed", String(date === state.selectedDate));
-    button.setAttribute("aria-label", `${displayDate(date)}: ${seconds ? focusMinutes(seconds) + " saved" : date > state.todayDate ? "future day" : "no focus saved"}`);
+    button.setAttribute("aria-label", `${habitFormat.weekday(date)}: ${seconds ? habitFormat.duration(seconds) + " saved" : date > state.todayDate ? "future day" : "no focus saved"}`);
     if (seconds) button.style.setProperty("--focus-level", `${Math.round(12 + 26 * seconds / maximum)}%`);
     const numberLabel = document.createElement("span"); numberLabel.textContent = day;
     const timeLabel = document.createElement("span"); timeLabel.className = "calendar-minutes"; timeLabel.textContent = seconds ? focusMinutes(seconds).replace(" min", "m") : "";
@@ -98,9 +86,9 @@ function renderRecent(sessions) {
     const main = document.createElement("div");
     const name = document.createElement("div"); name.className = "recent-name"; name.textContent = session.activity;
     const meta = document.createElement("div"); meta.className = "recent-meta";
-    const ended = new Date(session.ended_at).toLocaleString([], {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",timeZone:config.timezone});
+    const ended = habitFormat.stamp(session.ended_at);
     meta.textContent = `${session.status === "completed" ? "Completed" : "Stopped"} · ${ended}`;
-    const time = document.createElement("div"); time.className = "recent-time"; time.textContent = duration(session.elapsed_seconds);
+    const time = document.createElement("div"); time.className = "recent-time"; time.textContent = habitFormat.duration(session.elapsed_seconds);
     main.append(name, meta); row.append(main, time); root.append(row);
   }
 }
@@ -108,7 +96,7 @@ function tick() {
   if (!state.active) return;
   const remaining = Math.max(0, state.endClock - performance.now());
   document.querySelector("#countdown").textContent = clockText(remaining);
-  document.querySelector("#timer-fill").style.width = `${Math.min(100, remaining / state.durationMs * 100)}%`;
+  document.querySelector("#timer-fill").style.width = `${Math.min(100, (1 - remaining / state.durationMs) * 100)}%`;
   if (remaining === 0 && !state.completing) {
     state.completing = true;
     refresh().then(() => { if (!state.active) show("Focus session completed."); }).catch(error => show(error.message, true)).finally(() => { state.completing = false; });
@@ -118,8 +106,8 @@ function render(data) {
   state.active = data.active;
   state.todayDate = data.date;
   if (!state.selectedDate) state.selectedDate = data.date;
-  document.querySelector("#today-date").textContent = `Today · ${new Date(`${data.date}T12:00:00`).toLocaleDateString([], {day:"numeric",month:"long"})}`;
-  document.querySelector("#today-total").textContent = duration(data.today_seconds);
+  document.querySelector("#today-date").textContent = `Today · ${habitFormat.day(data.date)}`;
+  document.querySelector("#today-total").textContent = habitFormat.duration(data.today_seconds);
   document.querySelector("#focus-heading").textContent = data.active ? "Focus in progress." : "Settle in and study.";
   document.querySelector("#focus-intro").textContent = data.active ? "Your session keeps going if you leave this page." : "Pick one activity and a focus length. Your session continues if you leave this page.";
   document.querySelector("#start-form").hidden = Boolean(data.active);

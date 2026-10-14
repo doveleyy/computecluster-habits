@@ -8,7 +8,13 @@ from typing import TypedDict
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from services.common.sqlite import connect
+from services.habit_tracker.sqlite import connect
+
+MAX_SESSION_DURATION = timedelta(minutes=180)
+LONG_SESSION_SQL = (
+    "julianday(ended_at) - julianday(started_at) > "
+    f"{MAX_SESSION_DURATION.total_seconds() / 86400}"
+)
 
 
 @dataclass(frozen=True)
@@ -57,7 +63,7 @@ class StudyRepository:
     def initialize(self) -> None:
         with self._connect() as connection:
             connection.executescript(
-                """
+                f"""
                 CREATE TABLE IF NOT EXISTS study_sessions (
                     id TEXT PRIMARY KEY,
                     owner_identity TEXT NOT NULL REFERENCES users(identity),
@@ -76,6 +82,9 @@ class StudyRepository:
                     ON study_sessions(owner_identity) WHERE status = 'active';
                 CREATE INDEX IF NOT EXISTS study_owner_recent
                     ON study_sessions(owner_identity, started_at DESC);
+                CREATE INDEX IF NOT EXISTS study_long_saved
+                    ON study_sessions(owner_identity, ended_at)
+                    WHERE {LONG_SESSION_SQL};
                 """
             )
 
@@ -191,6 +200,33 @@ class StudyRepository:
             ended_at=now,
             status="stopped",
         )
+
+    def saved_sessions_in_range(
+        self, owner: str, first: date, end_exclusive: date, now: datetime
+    ) -> list[StudySession]:
+        start, _ = self._utc_bounds(first)
+        end, _ = self._utc_bounds(end_exclusive)
+        lower = start - MAX_SESSION_DURATION
+        with self._connect() as connection:
+            self._complete_expired(connection, owner, now)
+            rows = connection.execute(
+                "SELECT * FROM study_sessions WHERE owner_identity = ? "
+                "AND status != 'active' AND started_at >= ? AND started_at < ? "
+                "AND ended_at > ? UNION "
+                "SELECT * FROM study_sessions WHERE owner_identity = ? "
+                f"AND {LONG_SESSION_SQL} "
+                "AND started_at < ? AND ended_at > ?",
+                (
+                    owner,
+                    lower.isoformat(),
+                    end.isoformat(),
+                    start.isoformat(),
+                    owner,
+                    end.isoformat(),
+                    start.isoformat(),
+                ),
+            ).fetchall()
+        return [self._session(row) for row in rows]
 
     def summary(self, owner: str, now: datetime | None = None) -> StudySummary:
         now = now or datetime.now(UTC)

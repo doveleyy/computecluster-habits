@@ -1,32 +1,24 @@
 import json
-import os
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from dataclasses import dataclass, replace
+from datetime import UTC, date, datetime, time, timedelta
 from enum import StrEnum
 from html import escape
 from pathlib import Path
-from time import monotonic
 from typing import Annotated
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
+from hp_client import Platform, PlatformError, ProtocolError, TransportError
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from starlette.routing import Match, Router
+from starlette.types import ASGIApp, Receive, Scope, Send
 
-from services.common.identity import (
-    CachedResolver,
-    Identity,
-    http_identity_resolver,
-    identity_dependency,
-    read_secret_file,
-    tailscale_key,
-)
-from services.common.web import cache_versioned_assets
 from services.habit_tracker.budget import BudgetRepository, BudgetTransaction
+from services.habit_tracker.progress import ProgressRead, build_progress, validate_week
+from services.habit_tracker.settings import load_settings
 from services.habit_tracker.study import (
     ActiveStudySessionError,
     StudyRepository,
@@ -34,13 +26,14 @@ from services.habit_tracker.study import (
     StudySessionNotActiveError,
 )
 from services.habit_tracker.water import Drink, WaterRepository
+from services.habit_tracker.web import CacheVersionedAssets, asset_version, text_gzip
 
-SERVICE_VERSION = "0.10.1"
-DEFAULT_DATABASE_PATH = Path("data/habit-tracker.db")
+SERVICE_VERSION = "0.13.0"
 SERVICE_DIR = Path(__file__).parent
+ASSET_VERSION = asset_version(SERVICE_DIR / "static")
 TEMPLATES = {
     page: (SERVICE_DIR / "templates" / f"{page}.html").read_text(encoding="utf-8")
-    for page in ("dashboard", "water", "budget", "study")
+    for page in ("dashboard", "water", "budget", "study", "progress")
 }
 
 
@@ -52,6 +45,7 @@ def render_page(page: str, configuration: dict[str, object]) -> str:
         ("water", "Water", "/water"),
         ("budget", "Budget", "/budget"),
         ("study", "Study", "/study"),
+        ("progress", "Progress", "/progress"),
     ):
         active = " active" if page == name else ""
         current = ' aria-current="page"' if page == name else ""
@@ -65,20 +59,37 @@ def render_page(page: str, configuration: dict[str, object]) -> str:
     return (
         TEMPLATES[page]
         .replace("__BASE_PATH__", escape(base, quote=True))
-        .replace("__VERSION__", SERVICE_VERSION)
+        .replace("__VERSION__", ASSET_VERSION)
         .replace("__NAVIGATION__", navigation)
         .replace("__HABIT_TRACKER_CONFIG__", encoded)
     )
 
 
+def redirect_trailing_slash(router: Router, base_path: str) -> ASGIApp:
+    """Redirect ``/page/`` to ``/page`` inside the external prefix.
+
+    The proxy strips ``base_path`` before the request arrives, so Starlette's
+    own slash redirect would send the browser to ``/page`` outside the app.
+    """
+
+    async def default(scope: Scope, receive: Receive, send: Send) -> None:
+        path = scope["path"]
+        if scope["type"] == "http" and path != "/" and path.endswith("/"):
+            target = {**scope, "path": path.rstrip("/")}
+            if any(route.matches(target)[0] != Match.NONE for route in router.routes):
+                query = scope["query_string"].decode("latin-1")
+                location = base_path + target["path"] + (f"?{query}" if query else "")
+                await RedirectResponse(location)(scope, receive, send)
+                return
+        await router.not_found(scope, receive, send)
+
+    return default
+
+
 @dataclass(frozen=True)
-class Settings:
-    database_path: Path
-    base_path: str
-    timezone: ZoneInfo
-    allow_dev_identity: bool
-    identity_resolver_url: str | None
-    identity_resolver_token: str | None
+class Identity:
+    key: str
+    display_name: str
 
 
 class DrinkType(StrEnum):
@@ -263,112 +274,17 @@ class StudySessionRead(BaseModel):
     status: str
 
 
-def load_settings() -> Settings:
-    base_path = os.environ.get("HABIT_TRACKER_BASE_PATH", "/habits").rstrip("/")
-    if base_path and not base_path.startswith("/"):
-        raise RuntimeError("HABIT_TRACKER_BASE_PATH must be an absolute URL path")
-    timezone_name = os.environ.get(
-        "HABIT_TRACKER_TIMEZONE",
-        "Asia/Singapore",
-    )
-    try:
-        timezone = ZoneInfo(timezone_name)
-    except ZoneInfoNotFoundError as error:
-        raise RuntimeError(
-            f"unknown HABIT_TRACKER_TIMEZONE: {timezone_name}"
-        ) from error
-    return Settings(
-        database_path=Path(
-            os.environ.get(
-                "HABIT_TRACKER_DB_PATH",
-                str(DEFAULT_DATABASE_PATH),
-            )
-        ),
-        base_path=base_path,
-        timezone=timezone,
-        allow_dev_identity=os.environ.get(
-            "HABIT_TRACKER_ALLOW_DEV_IDENTITY",
-            "false",
-        )
-        .strip()
-        .lower()
-        in {"1", "true", "yes"},
-        identity_resolver_url=(
-            os.environ.get(
-                "HABIT_TRACKER_IDENTITY_RESOLVER_URL",
-                "",
-            ).strip()
-            or None
-        ),
-        identity_resolver_token=read_secret_file(
-            os.environ.get(
-                "HABIT_TRACKER_IDENTITY_TOKEN_FILE",
-                "",
-            ).strip()
-        ),
-    )
-
-
 def create_app(
     database_path: Path | None = None,
     *,
-    allow_dev_identity: bool | None = None,
-    identity_resolver: Callable[[str], Identity | None] | None = None,
-    identity_clock: Callable[[], float] = monotonic,
+    platform: Platform | None = None,
 ) -> FastAPI:
     settings = load_settings()
-    if database_path is not None or allow_dev_identity is not None:
-        settings = Settings(
-            database_path=database_path or settings.database_path,
-            base_path=settings.base_path,
-            timezone=settings.timezone,
-            allow_dev_identity=(
-                settings.allow_dev_identity
-                if allow_dev_identity is None
-                else allow_dev_identity
-            ),
-            identity_resolver_url=settings.identity_resolver_url,
-            identity_resolver_token=settings.identity_resolver_token,
-        )
-    if identity_resolver is None and settings.identity_resolver_url is not None:
-        if settings.identity_resolver_token is None:
-            raise RuntimeError(
-                "HABIT_TRACKER_IDENTITY_TOKEN_FILE is required with the resolver"
-            )
-        identity_resolver = http_identity_resolver(
-            settings.identity_resolver_url, settings.identity_resolver_token
-        )
+    if database_path is not None:
+        settings = replace(settings, database_path=database_path)
     repository = WaterRepository(settings.database_path, settings.timezone)
     budget_repository = BudgetRepository(settings.database_path, settings.timezone)
     study_repository = StudyRepository(settings.database_path, settings.timezone)
-
-    def ensure_user(identity: Identity) -> None:
-        repository.ensure_user(identity.key, identity.display_name)
-        budget_repository.ensure_user(
-            identity.key, datetime.now(settings.timezone).date()
-        )
-
-    def adopt_legacy_rows(subject: str, identity: Identity) -> None:
-        legacy_key = tailscale_key(subject)
-        if legacy_key != identity.key:
-            with repository.transaction() as connection:
-                repository.adopt_identity(
-                    connection, legacy_key, identity.key, identity.display_name
-                )
-                budget_repository.adopt_identity(
-                    connection,
-                    legacy_key,
-                    identity.key,
-                    datetime.now(settings.timezone).date(),
-                )
-                study_repository.adopt_identity(connection, legacy_key, identity.key)
-        ensure_user(identity)
-
-    cached_resolver = (
-        CachedResolver(identity_resolver, adopt_legacy_rows, clock=identity_clock)
-        if identity_resolver
-        else None
-    )
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
@@ -379,6 +295,7 @@ def create_app(
         application.state.budget_repository = budget_repository
         application.state.study_repository = study_repository
         application.state.settings = settings
+        application.state.platform = platform or Platform.from_environment()
         yield
 
     application = FastAPI(
@@ -388,16 +305,34 @@ def create_app(
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
+        redirect_slashes=False,
     )
-    application.add_middleware(GZipMiddleware, minimum_size=1000)
+    application.router.default = redirect_trailing_slash(
+        application.router, settings.base_path
+    )
+    application.add_middleware(text_gzip)
     application.mount("/static", StaticFiles(directory=SERVICE_DIR / "static"))
-    cache_versioned_assets(application, SERVICE_VERSION)
-    current_identity = identity_dependency(
-        dev_header="X-Habit-Tracker-Dev-User",
-        allow_dev_identity=settings.allow_dev_identity,
-        resolver=cached_resolver,
-        ensure_user=ensure_user,
-    )
+    application.add_middleware(CacheVersionedAssets, version=ASSET_VERSION)
+
+    def current_identity(request: Request) -> Identity:
+        try:
+            with request.app.state.platform.for_request(
+                request.headers.get("X-Platform-User-Context")
+            ) as api:
+                user = api.current_user()
+        except ValueError as error:
+            raise HTTPException(401, "Gateway identity is required") from error
+        except PlatformError as error:
+            status = error.status if error.status in {401, 403} else 503
+            raise HTTPException(status, "Platform identity unavailable") from error
+        except (TransportError, ProtocolError) as error:
+            raise HTTPException(503, "Platform identity unavailable") from error
+        identity = Identity(f"home-platform:{user.id}", user.display_name)
+        repository.ensure_user(identity.key, identity.display_name)
+        budget_repository.ensure_user(
+            identity.key, datetime.now(settings.timezone).date()
+        )
+        return identity
 
     @application.get("/health")
     def health() -> dict[str, str]:
@@ -417,7 +352,7 @@ def create_app(
 
     @application.get("/version")
     def version() -> dict[str, str]:
-        return {"service": "habit-tracker", "version": SERVICE_VERSION}
+        return {"service": "habits", "version": SERVICE_VERSION}
 
     @application.get("/", response_class=HTMLResponse)
     def dashboard_page(
@@ -479,6 +414,46 @@ def create_app(
                 "displayName": user.display_name,
                 "timezone": str(request.app.state.settings.timezone),
             },
+        )
+
+    @application.get("/progress", response_class=HTMLResponse)
+    def progress_page(
+        user: Annotated[Identity, Depends(current_identity)], request: Request
+    ) -> str:
+        return render_page(
+            "progress",
+            {
+                "basePath": settings.base_path,
+                "displayName": user.display_name,
+                "timezone": str(settings.timezone),
+            },
+        )
+
+    @application.get("/api/progress")
+    def progress_snapshot(
+        user: Annotated[Identity, Depends(current_identity)],
+        week: date | None = None,
+    ) -> ProgressRead:
+        now = datetime.now(UTC)
+        today = now.astimezone(settings.timezone).date()
+        selected = week or today - timedelta(days=today.weekday())
+        try:
+            validate_week(selected, today)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        first, end = selected - timedelta(days=7), selected + timedelta(days=7)
+        return build_progress(
+            week_start=selected,
+            now=now,
+            timezone=settings.timezone,
+            current_goal_ml=repository.goal(user.key),
+            currency=budget_repository.currency(user.key),
+            drinks=repository.drinks_in_range(user.key, first, end),
+            spending=budget_repository.spending_in_range(user.key, first, end),
+            allowances=budget_repository.allowances_in_range(user.key, first, end),
+            sessions=study_repository.saved_sessions_in_range(
+                user.key, first, end, now
+            ),
         )
 
     @application.get("/api/study/summary")

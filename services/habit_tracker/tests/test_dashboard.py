@@ -1,25 +1,16 @@
 import sqlite3
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from services.habit_tracker.main import create_app
-
-
-def client(path: Path, user: str = "member@example.test") -> TestClient:
-    return TestClient(
-        create_app(path, allow_dev_identity=True),
-        headers={"X-Habit-Tracker-Dev-User": user},
-    )
+from services.habit_tracker.tests.members import anonymous, client
 
 
 def test_navigation_assets_and_private_dashboard(tmp_path: Path) -> None:
     path = tmp_path / "habits.db"
-    with TestClient(create_app(path)) as anonymous:
+    with anonymous(path) as visitor:
         for route in ("/", "/water", "/budget", "/study", "/api/budget/summary"):
-            assert anonymous.get(route).status_code == 401
+            assert visitor.get(route).status_code == 401
         assert (
-            anonymous.put(
+            visitor.put(
                 "/api/budget/savings-goal", json={"target_cents": 10000}
             ).status_code
             == 401

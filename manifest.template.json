@@ -1,0 +1,14 @@
+{
+  "contract_version": 1,
+  "app_id": "habits",
+  "source_commit": "${SOURCE_COMMIT}",
+  "image": "${IMAGE}",
+  "runtime": {
+    "port": 8100,
+    "health_path": "/health",
+    "ready_path": "/ready",
+    "version_path": "/version"
+  },
+  "capabilities": ["identity"],
+  "state": {"sqlite_file": "habit-tracker.db"}
+}

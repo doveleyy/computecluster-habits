@@ -10,4 +10,5 @@
 a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--accent,#9dcce1);outline-offset:4px}
 @media(max-width:760px){.shell{padding-left:12px;padding-right:12px}.top{align-items:flex-start}.user{max-width:35%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
 @media(max-width:500px){.tabs{width:100%}.tab{flex:1;padding:0 10px}}
+@media(max-width:360px){.tab{padding:0 6px;font-size:9px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}

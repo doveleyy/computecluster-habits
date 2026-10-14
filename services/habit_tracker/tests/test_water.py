@@ -6,19 +6,13 @@ from zoneinfo import ZoneInfo
 import pytest
 from fastapi.testclient import TestClient
 
-from services.common.identity import Identity
 from services.habit_tracker.main import create_app
-
-
-def client(tmp_path: Path) -> TestClient:
-    return TestClient(
-        create_app(tmp_path / "water.db", allow_dev_identity=True),
-        headers={"X-Habit-Tracker-Dev-User": "member@example.test"},
-    )
+from services.habit_tracker.tests.members import anonymous, client, owner
+from tests.platform_fixture import fixture
 
 
 def test_health_does_not_require_identity(tmp_path: Path) -> None:
-    with TestClient(create_app(tmp_path / "water.db")) as test_client:
+    with anonymous(tmp_path / "water.db") as test_client:
         response = test_client.get("/health")
 
     assert response.status_code == 200
@@ -26,14 +20,14 @@ def test_health_does_not_require_identity(tmp_path: Path) -> None:
 
 
 def test_application_routes_require_proxy_identity(tmp_path: Path) -> None:
-    with TestClient(create_app(tmp_path / "water.db")) as test_client:
+    with anonymous(tmp_path / "water.db") as test_client:
         response = test_client.get("/api/today")
 
     assert response.status_code == 401
 
 
 def test_logging_ui_has_compact_amount_and_attribute_controls(tmp_path: Path) -> None:
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "water.db") as test_client:
         response = test_client.get("/water")
 
     assert response.status_code == 200
@@ -48,7 +42,7 @@ def test_logging_ui_has_compact_amount_and_attribute_controls(tmp_path: Path) ->
 
 
 def test_record_and_remove_a_drink(tmp_path: Path) -> None:
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "water.db") as test_client:
         empty = test_client.get("/api/today")
         created = test_client.post(
             "/api/drinks",
@@ -78,7 +72,7 @@ def test_backdated_drink_updates_selected_day_and_calendar(tmp_path: Path) -> No
     timezone = ZoneInfo("Asia/Singapore")
     yesterday = datetime.now(timezone).date() - timedelta(days=1)
     tomorrow = datetime.now(timezone).date() + timedelta(days=1)
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "water.db") as test_client:
         created = test_client.post(
             "/api/water/drinks",
             json={"amount_ml": 500, "drink_type": "tea", "day": str(yesterday)},
@@ -109,13 +103,10 @@ def test_backdated_drink_updates_selected_day_and_calendar(tmp_path: Path) -> No
 
 
 def test_identity_isolation(tmp_path: Path) -> None:
-    with client(tmp_path) as first:
+    with client(tmp_path / "water.db") as first:
         drink = first.post("/api/drinks", json={"amount_ml": 500}).json()
 
-    with TestClient(
-        create_app(tmp_path / "water.db", allow_dev_identity=True),
-        headers={"X-Habit-Tracker-Dev-User": "someone-else@example.test"},
-    ) as second:
+    with client(tmp_path / "water.db", "someone-else@example.test") as second:
         today = second.get("/api/today")
         deletion = second.delete(f"/api/drinks/{drink['id']}")
 
@@ -124,7 +115,7 @@ def test_identity_isolation(tmp_path: Path) -> None:
 
 
 def test_goal_validation_and_history(tmp_path: Path) -> None:
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "water.db") as test_client:
         updated = test_client.put("/api/settings", json={"daily_goal_ml": 2400})
         invalid = test_client.put("/api/settings", json={"daily_goal_ml": 100})
         test_client.post("/api/drinks", json={"amount_ml": 250, "drink_type": "tea"})
@@ -139,11 +130,11 @@ def test_goal_validation_and_history(tmp_path: Path) -> None:
 
 def test_previous_day_analysis_breaks_down_drink_attributes(tmp_path: Path) -> None:
     database_path = tmp_path / "water.db"
-    identity = "development:member@example.test"
+    identity = owner("member@example.test")
     timezone = ZoneInfo("Asia/Singapore")
     previous_day = datetime.now(timezone).date() - timedelta(days=1)
     consumed_at = datetime.combine(previous_day, time(12), timezone).astimezone(UTC)
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "water.db") as test_client:
         assert test_client.get("/api/today").status_code == 200
         with sqlite3.connect(database_path) as connection:
             connection.executemany(
@@ -209,7 +200,7 @@ def test_previous_day_analysis_breaks_down_drink_attributes(tmp_path: Path) -> N
 def test_drink_type_defaults_to_water_and_rejects_unknown_type(
     tmp_path: Path,
 ) -> None:
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "water.db") as test_client:
         defaulted = test_client.post("/api/drinks", json={"amount_ml": 250})
         protein_shake = test_client.post(
             "/api/drinks",
@@ -233,7 +224,7 @@ def test_drink_type_defaults_to_water_and_rejects_unknown_type(
 
 
 def test_temperature_and_sweetness_validation(tmp_path: Path) -> None:
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "water.db") as test_client:
         iced_tea = test_client.post(
             "/api/drinks",
             json={
@@ -259,7 +250,7 @@ def test_temperature_and_sweetness_validation(tmp_path: Path) -> None:
 
 
 def test_soft_and_sports_drinks_accept_sweetness(tmp_path: Path) -> None:
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "water.db") as test_client:
         soft = test_client.post(
             "/api/drinks",
             json={
@@ -298,7 +289,7 @@ def test_soft_and_sports_drinks_accept_sweetness(tmp_path: Path) -> None:
 
 def test_database_rejects_sweetness_on_an_unsweetened_type(tmp_path: Path) -> None:
     database_path = tmp_path / "water.db"
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "water.db") as test_client:
         assert test_client.get("/api/today").status_code == 200
 
     with (
@@ -313,7 +304,7 @@ def test_database_rejects_sweetness_on_an_unsweetened_type(tmp_path: Path) -> No
             """,
             (
                 "bypass",
-                "development:member@example.test",
+                owner("member@example.test"),
                 250,
                 "milk",
                 "extra",
@@ -324,7 +315,7 @@ def test_database_rejects_sweetness_on_an_unsweetened_type(tmp_path: Path) -> No
 
 def test_existing_database_entries_migrate_to_water(tmp_path: Path) -> None:
     database_path = tmp_path / "water.db"
-    identity = "development:member@example.test"
+    identity = owner("member@example.test")
     timestamp = datetime.now(UTC).isoformat()
     with sqlite3.connect(database_path) as connection:
         connection.executescript(
@@ -355,7 +346,7 @@ def test_existing_database_entries_migrate_to_water(tmp_path: Path) -> None:
             ("legacy-drink", identity, 300, timestamp),
         )
 
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "water.db") as test_client:
         today = test_client.get("/api/today")
 
     assert today.status_code == 200
@@ -369,10 +360,10 @@ def test_sparkling_water_entries_migrate_to_supplement_water(
     tmp_path: Path,
 ) -> None:
     database_path = tmp_path / "water.db"
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "water.db") as test_client:
         assert test_client.get("/api/today").status_code == 200
 
-    identity = "development:member@example.test"
+    identity = owner("member@example.test")
     with sqlite3.connect(database_path) as connection:
         connection.execute("DROP TRIGGER drinks_valid_type_insert")
         connection.execute(
@@ -390,7 +381,7 @@ def test_sparkling_water_entries_migrate_to_supplement_water(
             ),
         )
 
-    with client(tmp_path) as test_client:
+    with client(tmp_path / "water.db") as test_client:
         today = test_client.get("/api/today")
         rejected = test_client.post(
             "/api/drinks",
@@ -403,38 +394,17 @@ def test_sparkling_water_entries_migrate_to_supplement_water(
     assert rejected.status_code == 422
 
 
-def test_linked_home_platform_identity_adopts_legacy_tailscale_data(
-    tmp_path: Path,
-) -> None:
-    database_path = tmp_path / "water.db"
-    with TestClient(
-        create_app(database_path),
-        headers={"Tailscale-User-Login": "member@example.test"},
-    ) as legacy:
-        assert legacy.post("/api/drinks", json={"amount_ml": 500}).status_code == 201
-
-    with TestClient(
-        create_app(
-            database_path,
-            identity_resolver=lambda _subject: Identity(
-                key="home-platform:00000000-0000-0000-0000-000000000123",
-                display_name="member",
-            ),
-        ),
-        headers={"Tailscale-User-Login": "member@example.test"},
-    ) as linked:
-        today = linked.get("/api/today")
-
-    assert today.status_code == 200
-    assert today.json()["total_ml"] == 500
-
-
-def test_unlinked_tailscale_identity_is_refused(tmp_path: Path) -> None:
-    with TestClient(
-        create_app(tmp_path / "water.db", identity_resolver=lambda _subject: None),
-        headers={"Tailscale-User-Login": "unknown@example.test"},
-    ) as test_client:
+def test_identity_the_core_refuses_is_refused(tmp_path: Path) -> None:
+    with (
+        fixture() as core,
+        TestClient(
+            create_app(tmp_path / "water.db", platform=core.platform),
+            headers={"X-Platform-User-Context": "member@example.test"},
+        ) as test_client,
+    ):
+        core.status = 403
         response = test_client.get("/api/today")
 
     assert response.status_code == 403
-    assert "Link this Tailscale identity" in response.json()["detail"]
+    with sqlite3.connect(tmp_path / "water.db") as connection:
+        assert connection.execute("SELECT count(*) FROM users").fetchone() == (0,)
