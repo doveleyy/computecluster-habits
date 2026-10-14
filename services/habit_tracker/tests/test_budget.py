@@ -3,6 +3,8 @@ from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import pytest
+
 from services.habit_tracker.budget import BudgetRepository
 from services.habit_tracker.tests.members import client, owner
 from services.habit_tracker.water import WaterRepository
@@ -564,3 +566,34 @@ def test_untouched_zero_placeholder_migrates_to_default_with_audit_event(
     assert len(adjustments) == 1
     assert adjustments[0].previous_amount_cents == 0
     assert adjustments[0].new_amount_cents == 1000
+
+
+@pytest.mark.parametrize(
+    "missing",
+    [
+        {"daily_budget_changes": "identity", "budget_adjustments": "owner_identity"},
+        {"budget_adjustments": "owner_identity"},
+    ],
+    ids=["no-budget-history", "no-adjustment"],
+)
+def test_owner_with_settings_but_missing_budget_rows_gets_the_defaults(
+    tmp_path: Path, missing: dict[str, str]
+) -> None:
+    database_path = tmp_path / "habits.db"
+    identity = owner("member@example.test")
+    with client(database_path) as test_client:
+        assert test_client.get("/api/budget/summary").status_code == 200
+        with sqlite3.connect(database_path) as connection:
+            for table, column in missing.items():
+                connection.execute(
+                    f"DELETE FROM {table} WHERE {column} = ?", (identity,)
+                )
+        summary = test_client.get("/api/budget/summary").json()
+
+    assert summary["daily_budget_cents"] == 1000
+    with sqlite3.connect(database_path) as connection:
+        assert connection.execute(
+            "SELECT previous_amount_cents, new_amount_cents FROM budget_adjustments "
+            "WHERE owner_identity = ?",
+            (identity,),
+        ).fetchall() == [(0, 1000)]
