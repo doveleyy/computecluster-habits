@@ -1,3 +1,4 @@
+import re
 import sqlite3
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -5,6 +6,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from fastapi.testclient import TestClient
 from hp_client import Platform
+from starlette.routing import Mount
 
 from services.habit_tracker.main import create_app
 from services.habit_tracker.water import WaterRepository
@@ -19,6 +21,7 @@ READS = (
     "/api/study/summary",
     "/api/progress",
 )
+OPEN_PATHS = {"/health", "/ready", "/version", "/static"}
 
 
 def users(database: Path) -> list[tuple[str, str]]:
@@ -89,6 +92,24 @@ def test_missing_forged_and_raw_legacy_identity_is_denied(tmp_path: Path) -> Non
             "service": "habits",
             "version": "0.13.0",
         }
+    assert users(database) == []
+
+
+def test_every_route_but_the_open_ones_requires_identity(tmp_path: Path) -> None:
+    database = tmp_path / "habit-tracker.db"
+    with fixture() as core:
+        app = create_app(database, platform=core.platform)
+        private = [
+            (method, re.sub(r"\{[^}]+\}", "fictional", route.path))
+            for route in app.routes
+            if route.path not in OPEN_PATHS
+            for method in ({"GET"} if isinstance(route, Mount) else route.methods)
+        ]
+        assert private
+        with TestClient(app) as anonymous:
+            for method, path in private:
+                status = anonymous.request(method, path).status_code
+                assert status == 401, f"{method} {path} answered {status}"
     assert users(database) == []
 
 
