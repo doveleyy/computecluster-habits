@@ -4,7 +4,7 @@ Habits is one household application with Overview, Water, Budget, Study and
 Progress pages. Each linked platform user owns separate drinks, spending,
 allowances, a sinking fund, savings targets and focus sessions. All pages share
 one process, one container and one SQLite database. Its SQLite schema, money
-rules and web assets are unchanged in version `0.13.0`. This release uses the
+rules and web assets are unchanged in version `0.13.1`. This release uses the
 published Home Platform client for identity and builds independently of the
 platform repository.
 
@@ -103,7 +103,7 @@ stable key only through the repositories' transactional adoption steps, run
 offline from a reviewed mapping; requests never adopt rows.
 
 `/health` checks nothing outside the process. `/ready` checks local SQLite.
-`/version` reports service `habits` and app version `0.13.0`. The app has no
+`/version` reports service `habits` and app version `0.13.1`. The app has no
 scheduled maintenance. Expired focus sessions complete on the owner's next
 request.
 
