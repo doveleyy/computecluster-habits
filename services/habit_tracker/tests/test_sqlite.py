@@ -92,3 +92,15 @@ def test_a_replaced_database_file_gets_a_new_connection(tmp_path: Path) -> None:
     replacement.replace(path)
     with connect(path) as connection:
         assert connection.execute("SELECT count(*) FROM notes").fetchone() == (0,)
+
+
+def test_a_write_reaches_the_database_file_while_the_connection_stays_open(
+    tmp_path: Path,
+) -> None:
+    path = database(tmp_path / "notes.db")
+    with connect(path) as connection:
+        connection.execute("INSERT INTO notes VALUES (4)")
+    copy = tmp_path / "copy.db"
+    copy.write_bytes(path.read_bytes())
+    with sqlite3.connect(copy) as backup:
+        assert backup.execute("SELECT max(value) FROM notes").fetchone() == (4,)

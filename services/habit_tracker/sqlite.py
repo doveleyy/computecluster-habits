@@ -32,9 +32,14 @@ def connect(
             idle[1].close()
         connection = _open(database_path)
     connection.row_factory = row_factory
+    changes = connection.total_changes
     try:
         with connection:
             yield connection
+        if connection.total_changes != changes:
+            # Closing the last connection used to fold the WAL into the
+            # database file; a kept connection must, or file copies miss writes.
+            connection.execute("PRAGMA wal_checkpoint(PASSIVE)")
     finally:
         if getattr(_idle, "connection", None) is None:
             _idle.connection = (key, connection)
