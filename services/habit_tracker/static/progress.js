@@ -12,9 +12,9 @@ const sum = values => values.reduce((a, b) => a + b, 0);
 const escapeHtml = text => String(text).replace(/[&<>"']/g, char => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[char]));
 const label = value => value.replaceAll('_', ' ').replace(/^./, char => char.toUpperCase());
 const METRICS = {
-  water: {name:'Drink intake', noun:'All drink volume', color:'#88c9e6', format:volume, field:'ml', goal:0, reference:'Current daily volume goal', chart:'Daily drink volume', unit:'L'},
-  spending: {name:'Spending', noun:'Daily spending', color:'#eda9c5', format:money, field:'cents', goal:0, chart:'Daily spending', unit:'SGD'},
-  focus: {name:'Focus', noun:'Saved focus time', color:'#b49cff', format:duration, field:'seconds', goal:0, chart:'Daily focus time', unit:'min'},
+  water: {name:'Drink intake', noun:'All drink volume', color:'var(--water)', format:volume, field:'ml', goal:0, reference:'Current daily volume goal', chart:'Daily drink volume', unit:'L'},
+  spending: {name:'Spending', noun:'Daily spending', color:'var(--money)', format:money, field:'cents', goal:0, chart:'Daily spending', unit:'SGD'},
+  focus: {name:'Focus', noun:'Saved focus time', color:'var(--focus)', format:duration, field:'seconds', goal:0, chart:'Daily focus time', unit:'min'},
 };
 if (!Object.hasOwn(METRICS, state.metric)) state.metric = 'water';
 function events(metric, start, end, category = null) {

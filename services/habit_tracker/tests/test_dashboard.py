@@ -27,7 +27,7 @@ def test_navigation_assets_and_private_dashboard(tmp_path: Path) -> None:
             ):
                 assert f'href="{href}"' in page.text
             assert page.text.count('aria-current="page"') == 1
-        for asset in ("dashboard", "water", "budget", "study", "shell"):
+        for asset in ("base", "dashboard", "water", "budget", "study", "shell"):
             assert signed_in.get(f"/static/{asset}.css").status_code == 200
         for asset in ("dashboard", "water", "budget", "study"):
             assert signed_in.get(f"/static/{asset}.js").status_code == 200
@@ -35,6 +35,24 @@ def test_navigation_assets_and_private_dashboard(tmp_path: Path) -> None:
             signed_in.get("/api/water/today").json()
             == signed_in.get("/api/today").json()
         )
+
+
+def test_pages_load_base_then_page_then_shell_styles(tmp_path: Path) -> None:
+    pages = {
+        "/": "dashboard",
+        "/water": "water",
+        "/budget": "budget",
+        "/study": "study",
+        "/progress": "progress",
+    }
+    with client(tmp_path / "habits.db") as signed_in:
+        for route, page in pages.items():
+            html = signed_in.get(route).text
+            order = [
+                html.index(f"/static/{sheet}.css?v=")
+                for sheet in ("base", page, "shell")
+            ]
+            assert order == sorted(order), route
 
 
 def test_overview_has_three_cards_and_study_summary(tmp_path: Path) -> None:
