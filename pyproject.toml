@@ -1,6 +1,6 @@
 [project]
 name = "home-platform-habits"
-version = "0.13.1"
+version = "0.14.0"
 requires-python = ">=3.11"
 
 [tool.ruff]

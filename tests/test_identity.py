@@ -93,7 +93,7 @@ def test_missing_forged_and_raw_legacy_identity_is_denied(tmp_path: Path) -> Non
         assert browser.get("/ready").status_code == 200
         assert browser.get("/version").json() == {
             "service": "habits",
-            "version": "0.13.1",
+            "version": "0.14.0",
         }
     assert users(database) == []
 

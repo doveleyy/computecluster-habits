@@ -39,7 +39,7 @@ from services.habit_tracker.study import (
 from services.habit_tracker.water import Drink, WaterRepository
 from services.habit_tracker.web import CacheVersionedAssets, asset_version, text_gzip
 
-SERVICE_VERSION = "0.13.1"
+SERVICE_VERSION = "0.14.0"
 SERVICE_DIR = Path(__file__).parent
 ASSET_VERSION = asset_version(SERVICE_DIR / "static")
 TEMPLATES = {
