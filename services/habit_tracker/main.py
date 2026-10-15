@@ -19,6 +19,17 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from services.habit_tracker.budget import BudgetRepository, BudgetTransaction
 from services.habit_tracker.progress import ProgressRead, build_progress, validate_week
 from services.habit_tracker.settings import load_settings
+from services.habit_tracker.stats import (
+    FocusInput,
+    Metric,
+    PeriodKind,
+    SpendingInput,
+    StatsInput,
+    StatsRead,
+    WaterInput,
+    build_stats,
+    fetch_range,
+)
 from services.habit_tracker.study import (
     ActiveStudySessionError,
     StudyRepository,
@@ -454,6 +465,45 @@ def create_app(
             sessions=study_repository.saved_sessions_in_range(
                 user.key, first, end, now
             ),
+        )
+
+    @application.get("/api/stats")
+    def stats(
+        user: Annotated[Identity, Depends(current_identity)],
+        metric: Metric,
+        period: PeriodKind,
+        anchor: date | None = None,
+    ) -> StatsRead:
+        now = datetime.now(UTC)
+        today = now.astimezone(settings.timezone).date()
+        selected = anchor or today
+        try:
+            first, end = fetch_range(period, selected, today)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        source: StatsInput
+        match metric:
+            case "water":
+                source = WaterInput(
+                    repository.goal(user.key),
+                    repository.drinks_in_range(user.key, first, end),
+                )
+            case "spending":
+                source = SpendingInput(
+                    budget_repository.allowances_in_range(user.key, first, end),
+                    budget_repository.spending_in_range(user.key, first, end),
+                )
+            case "focus":
+                source = FocusInput(
+                    study_repository.saved_sessions_in_range(user.key, first, end, now)
+                )
+        return build_stats(
+            source=source,
+            period=period,
+            anchor=selected,
+            now=now,
+            timezone=settings.timezone,
+            currency=budget_repository.currency(user.key),
         )
 
     @application.get("/api/study/summary")

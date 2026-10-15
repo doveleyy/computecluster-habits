@@ -20,6 +20,9 @@ READS = (
     "/api/budget/summary",
     "/api/study/summary",
     "/api/progress",
+    "/api/stats?metric=water&period=week",
+    "/api/stats?metric=spending&period=month",
+    "/api/stats?metric=focus&period=year",
 )
 OPEN_PATHS = {"/health", "/ready", "/version", "/static"}
 
