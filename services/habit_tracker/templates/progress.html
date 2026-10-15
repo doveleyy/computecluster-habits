@@ -12,12 +12,48 @@
 <body>
   <iframe class="platform-bar" src="/platform/bar?app=habits" title="Home Platform apps" style="display:block;width:100%;height:41px;border:0;flex:none;background:#070707"></iframe>
   <main class="shell">
-    <header class="top"><h1 class="title">habit tracker<span class="muted">.</span></h1><div class="user" id="user"></div></header>
+    <header class="top"><div><h1 class="title">progress<span class="dot">.</span></h1></div><div class="user" id="user"></div></header>
     __NAVIGATION__
-    <div id="progress-status" role="status"></div>
-    <div id="app" aria-busy="true"></div>
+    <div class="stats-head">
+      <div class="tabs switch" role="group" aria-label="Metric" id="metric-switch"><button class="tab" type="button" data-metric="water" aria-pressed="false">Water</button><button class="tab" type="button" data-metric="spending" aria-pressed="false">Spending</button><button class="tab" type="button" data-metric="focus" aria-pressed="false">Focus</button></div>
+      <div class="tabs switch" role="group" aria-label="Period" id="period-switch"><button class="tab" type="button" data-period="week" aria-pressed="false">Week</button><button class="tab" type="button" data-period="month" aria-pressed="false">Month</button><button class="tab" type="button" data-period="year" aria-pressed="false">Year</button></div>
+      <div class="period-nav"><button type="button" id="previous-period" data-step="-1" aria-label="Previous period">←</button><span id="period-label">—</span><button type="button" id="next-period" data-step="1" aria-label="Next period">→</button></div>
+    </div>
+    <p id="progress-status" role="status"></p>
+    <div id="app" aria-busy="true">
+      <div class="page-grid stats-grid">
+        <section class="panel chart-panel" aria-labelledby="hero-label">
+          <div class="hero">
+            <div class="label" id="hero-label">—</div>
+            <div class="hero-total" id="hero-total">—</div>
+            <p class="hero-average" id="hero-average"></p>
+            <p class="comparison"><span class="delta" id="delta" hidden></span><span id="delta-caption"></span></p>
+          </div>
+          <div class="chart-head"><span class="panel-title" id="chart-title">—</span><span class="legend" id="chart-legend"></span></div>
+          <div id="main-chart"></div>
+        </section>
+        <div class="stat-tiles" id="tiles"></div>
+      </div>
+      <section class="panel heatmap-panel" aria-labelledby="heatmap-title">
+        <div class="panel-head"><span class="panel-title" id="heatmap-title">Last 12 months</span><span class="label" id="heatmap-caption"></span></div>
+        <div id="heatmap"></div>
+        <div class="heat-key" id="heat-key"></div>
+      </section>
+      <div class="page-grid stats-grid">
+        <section class="panel" aria-labelledby="breakdown-title">
+          <div class="panel-head"><span class="panel-title" id="breakdown-title">—</span><span class="label" id="breakdown-caption"></span></div>
+          <div class="breakdown" id="breakdown"></div>
+        </section>
+        <section class="panel" aria-labelledby="hours-title">
+          <div class="panel-head"><span class="panel-title" id="hours-title">When</span><span class="label" id="hours-caption">By hour</span></div>
+          <div class="hours" id="hours"></div>
+        </section>
+      </div>
+    </div>
   </main>
   <script>window.habitConfig=__HABIT_TRACKER_CONFIG__;</script>
+  <script src="__BASE_PATH__/static/format.js?v=__VERSION__" defer></script>
+  <script src="__BASE_PATH__/static/charts.js?v=__VERSION__" defer></script>
   <script src="__BASE_PATH__/static/progress.js?v=__VERSION__" defer></script>
 </body>
 </html>

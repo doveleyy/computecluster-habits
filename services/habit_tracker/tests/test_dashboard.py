@@ -27,9 +27,17 @@ def test_navigation_assets_and_private_dashboard(tmp_path: Path) -> None:
             ):
                 assert f'href="{href}"' in page.text
             assert page.text.count('aria-current="page"') == 1
-        for asset in ("base", "dashboard", "water", "budget", "study", "shell"):
+        for asset in (
+            "base",
+            "dashboard",
+            "water",
+            "budget",
+            "study",
+            "progress",
+            "shell",
+        ):
             assert signed_in.get(f"/static/{asset}.css").status_code == 200
-        for asset in ("dashboard", "water", "budget", "study"):
+        for asset in ("dashboard", "water", "budget", "study", "progress", "charts"):
             assert signed_in.get(f"/static/{asset}.js").status_code == 200
         assert (
             signed_in.get("/api/water/today").json()
