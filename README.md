@@ -38,7 +38,11 @@ python vendor/hp-app-check.pyz --manifest manifest.template.json --template --im
 The checks cover the existing water, budget, study and progress behavior,
 actual client HTTP identity, denied direct and forged requests, owner
 isolation, immediate revocation, study reads that never wait on the write lock,
-offline identity adoption, unchanged state and publication evidence. The
+offline identity adoption, unchanged state and publication evidence. A cost
+check makes every hot read for a three-year and a four-month history. Each read
+must reuse its thread's SQLite connection and stay within its statement count.
+Each read must hand Python the same rows for both histories. Reads that show
+only recent days must also do the same SQLite work for both. The
 boundary check rejects imports from the platform implementation. The portable
 checker starts only its own disposable containers and reports seven contract
 checks. Start Docker before using it.

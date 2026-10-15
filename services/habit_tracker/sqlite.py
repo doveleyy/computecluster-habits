@@ -43,7 +43,7 @@ def connect(
 
 
 def _open(database_path: Path) -> sqlite3.Connection:
-    # ``timeout`` is the busy handler: a writer waits this long for the lock.
+    # The timeout is the busy handler: a writer waits this long for the lock.
     connection = sqlite3.connect(database_path, timeout=10)
     connection.execute("PRAGMA foreign_keys = ON")
     # Safe with WAL: a power cut can lose the last commits, never corrupt.
