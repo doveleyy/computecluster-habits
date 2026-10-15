@@ -149,15 +149,14 @@ function render() {
 
 function renderDelta(metric, summary, noun, before) {
   const delta = $("#delta"), caption = $("#delta-caption");
-  delta.hidden = summary.change_ratio === null;
-  if (summary.change_ratio === null) {
+  const change = habitCharts.change(data);
+  delta.hidden = change === null;
+  if (change === null) {
     caption.textContent = summary.compared_days ? `Nothing logged ${before} to compare with` : "Comparison starts after the first full day";
     return;
   }
-  const percent = Math.round(Math.abs(summary.change_ratio) * 100);
-  const rising = summary.change_ratio > 0;
-  delta.className = `delta ${percent === 0 ? "even" : rising !== metric.lowerIsBetter ? "good" : "bad"}`;
-  delta.textContent = percent === 0 ? `Same as ${before}` : `${rising ? "▲" : "▼"} ${percent}% vs ${before}`;
+  delta.className = `delta ${change.direction === "even" ? "even" : (change.direction === "up") !== metric.lowerIsBetter ? "good" : "bad"}`;
+  delta.textContent = change.text;
   caption.textContent = summary.compared_days > daysBetween(data.current.start, data.current.end) ? `Full ${noun}s compared` : `First ${plural(summary.compared_days, "completed day")} of each ${noun}`;
 }
 
@@ -168,7 +167,6 @@ function bucketDate(bucket) {
 function renderChart(metric, unit, live, before, hasHistory) {
   const current = data.current.buckets, previous = data.previous.buckets;
   const pace = data.pace && data.metric === "spending";
-  const labels = current.map(bucket => data.period !== "month" || bucket.label === "1" || Number(bucket.label) % 5 === 0 ? bucket.label : "");
   const periodWord = {week:"Daily", month:"Daily", year:"Monthly"}[data.period];
   const legend = pace
     ? [["current", "Spent so far"], ["target", "Allowance plan"]]
@@ -177,27 +175,21 @@ function renderChart(metric, unit, live, before, hasHistory) {
   $("#chart-legend").innerHTML = legend.map(([style, label]) => `<span class="${style}"><i aria-hidden="true"></i>${escapeHtml(label)}</span>`).join("");
   const goal = data.metric === "water" && data.period !== "year" ? current[0].target : null;
   const empty = !data.summary.total && !previous.some(bucket => bucket.value);
+  const emptyState = empty ? hasHistory ? {title:`Nothing logged this ${PERIODS[data.period]}`, body:"Earlier days are in the heatmap below."} : metric.empty : null;
+  if (pace) {
+    habitCharts.pace($("#main-chart"), data, emptyState);
+    return;
+  }
   habitCharts.line($("#main-chart"), {
-    labels,
+    labels:habitCharts.axisLabels(data),
     highlightLast:live,
     unit,
     description:`${$("#chart-title").textContent}, ${data.current.label}. Use the arrow keys to read each ${data.period === "year" ? "month" : "day"}.`,
-    empty:empty ? hasHistory ? {title:`Nothing logged this ${PERIODS[data.period]}`, body:"Earlier days are in the heatmap below."} : metric.empty : null,
+    empty:emptyState,
     reference:goal ? {value:goal, label:`Goal ${unit.value(goal)}`} : null,
-    series:pace
-      ? [{style:"target", values:data.pace.target_cumulative}, {style:"current", values:data.pace.cumulative}]
-      : [{style:"previous", values:current.map((_, index) => previous[index]?.value ?? null)}, {style:"current", values:current.map(bucket => bucket.value)}],
+    series:[{style:"previous", values:current.map((_, index) => previous[index]?.value ?? null)}, {style:"current", values:current.map(bucket => bucket.value)}],
     readout(index) {
-      const bucket = current[index];
-      if (pace) {
-        const plan = data.pace.target_cumulative[index];
-        return {title:bucketDate(bucket), items:[
-          {style:"plain", label:"Spent", value:unit.value(bucket.value)},
-          {style:"current", label:"So far", value:unit.value(data.pace.cumulative[index])},
-          ...(plan === null ? [] : [{style:"target", label:"Plan", value:unit.value(plan)}]),
-        ]};
-      }
-      const earlier = previous[index];
+      const bucket = current[index], earlier = previous[index];
       return {title:bucketDate(bucket), items:[
         {style:"current", label:"", value:unit.value(bucket.value)},
         ...(earlier ? [{style:"previous", label:bucketDate(earlier), value:unit.value(earlier.value)}] : []),

@@ -181,5 +181,55 @@ const habitCharts = (() => {
     scroll.scrollLeft = scroll.scrollWidth;
   }
 
-  return {unit, line, heatmap};
+  // Sparse x labels: every day of a week, about every fifth day of a month, every month of a year.
+  function axisLabels(stats) {
+    return stats.current.buckets.map(bucket => stats.period !== "month" || bucket.label === "1" || Number(bucket.label) % 5 === 0 ? bucket.label : "");
+  }
+
+  function relativeTo(stats) {
+    return `${stats.current.end >= stats.today ? "last" : "previous"} ${stats.period}`;
+  }
+
+  // The like-for-like change from summary.change_ratio, or null when there is nothing to compare.
+  function change(stats) {
+    const ratio = stats.summary.change_ratio;
+    if (ratio === null) return null;
+    const percent = Math.round(Math.abs(ratio) * 100);
+    if (percent === 0) return {direction:"even", text:`Same as ${relativeTo(stats)}`};
+    return {direction:ratio > 0 ? "up" : "down", text:`${ratio > 0 ? "▲" : "▼"} ${percent}% vs ${relativeTo(stats)}`};
+  }
+
+  // Spending so far against the cumulative allowance up to today.
+  function paceText(stats) {
+    const index = stats.pace.cumulative.findLastIndex(value => value !== null);
+    const plan = index < 0 ? null : stats.pace.target_cumulative[index];
+    if (plan === null) return "No allowance plan for these days";
+    const spare = plan - stats.pace.cumulative[index];
+    const amount = habitFormat.money(Math.abs(spare), stats.currency);
+    return spare >= 0 ? `On pace · ${amount} under plan` : `${amount} over plan`;
+  }
+
+  function pace(root, stats, empty = null) {
+    const amounts = unit("spending", stats.currency);
+    const buckets = stats.current.buckets;
+    line(root, {
+      labels:axisLabels(stats),
+      highlightLast:stats.current.end >= stats.today,
+      unit:amounts,
+      description:`Spending pace, ${stats.current.label}. Use the arrow keys to read each day.`,
+      empty,
+      reference:null,
+      series:[{style:"target", values:stats.pace.target_cumulative}, {style:"current", values:stats.pace.cumulative}],
+      readout(index) {
+        const plan = stats.pace.target_cumulative[index];
+        return {title:habitFormat.shortDay(buckets[index].start), items:[
+          {style:"plain", label:"Spent", value:amounts.value(buckets[index].value)},
+          {style:"current", label:"So far", value:amounts.value(stats.pace.cumulative[index])},
+          ...(plan === null ? [] : [{style:"target", label:"Plan", value:amounts.value(plan)}]),
+        ]};
+      },
+    });
+  }
+
+  return {unit, line, heatmap, axisLabels, change, paceText, pace};
 })();

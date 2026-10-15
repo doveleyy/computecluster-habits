@@ -78,7 +78,17 @@ function renderLedger(data) {
 }
 function scheduleReset(nextReset) { clearTimeout(state.resetTimer); const wait = Math.max(1000, new Date(nextReset).getTime() - Date.now() + 1000); state.resetTimer = setTimeout(refresh, Math.min(wait, 2147483647)); }
 async function selectDate(value) { if (value < state.summary.plan_start_date || value > state.summary.date) { show("Choose a date within your budget plan.", true); return; } const [day, history] = await Promise.all([request(`/day?date=${encodeURIComponent(value)}`), request(`/history?days=7&end=${encodeURIComponent(value)}`)]); renderDay(day); renderTop(day); renderHistory(history); show(""); }
-async function refresh() { const [summary, ledger] = await Promise.all([request("/summary"),request("/ledger?limit=5")]); renderSummary(summary); if (!state.selectedDate || state.selectedDate > summary.date || state.selectedDate < summary.plan_start_date) state.selectedDate = summary.date; const [day, history] = await Promise.all([request(`/day?date=${encodeURIComponent(state.selectedDate)}`),request(`/history?days=7&end=${encodeURIComponent(state.selectedDate)}`)]); renderDay(day); renderTop(day); renderHistory(history); renderLedger(ledger); }
+async function refreshPace() {
+  const status = document.querySelector("#pace-status");
+  try {
+    const response = await fetch(`${config.basePath}/api/stats?metric=spending&period=month`, {cache:"no-store"});
+    if (!response.ok) throw new Error(`Pace is unavailable (${response.status}).`);
+    const stats = await response.json();
+    habitCharts.pace(document.querySelector("#pace-chart"), stats, stats.summary.total ? null : {title:"No spending this month yet", body:"Purchases you record appear here against your allowance."});
+    status.textContent = `${habitCharts.paceText(stats)} · ${stats.current.label}`;
+  } catch (error) { status.textContent = error.message; }
+}
+async function refresh() { const pace = refreshPace(); const [summary, ledger] = await Promise.all([request("/summary"),request("/ledger?limit=5")]); renderSummary(summary); if (!state.selectedDate || state.selectedDate > summary.date || state.selectedDate < summary.plan_start_date) state.selectedDate = summary.date; const [day, history] = await Promise.all([request(`/day?date=${encodeURIComponent(state.selectedDate)}`),request(`/history?days=7&end=${encodeURIComponent(state.selectedDate)}`)]); renderDay(day); renderTop(day); renderHistory(history); renderLedger(ledger); await pace; }
 function editBudget(editing) { state.editingBudget = editing; document.querySelector("#budget-trigger").hidden = editing; document.querySelector("#budget-form").hidden = !editing; if (editing) { const input = document.querySelector("#budget-input"); input.value = (state.summary.daily_budget_cents / 100).toFixed(2); input.focus(); input.select(); } }
 
 document.querySelector("#modes").addEventListener("click", event => { const kind = event.target.dataset.kind; if (!kind) return; state.kind = kind; renderMode(); });

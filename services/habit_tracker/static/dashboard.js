@@ -9,6 +9,7 @@ $('#user').textContent = config.displayName;
 for (const selector of ['#open-water', '#open-water-art']) $(selector).href = `${config.basePath}/water`;
 for (const selector of ['#open-budget', '#open-budget-art']) $(selector).href = `${config.basePath}/budget`;
 for (const selector of ['#open-study', '#open-study-art']) $(selector).href = `${config.basePath}/study`;
+for (const metric of ['water', 'spending', 'focus']) $(`#${metric}-trends`).href = `${config.basePath}/progress?metric=${metric}`;
 
 async function request(path, options = {}) {
   const response = await fetch(`${config.basePath}/api${path}`, {
@@ -56,6 +57,12 @@ function renderSavings(summary) {
   progress('#savings-progress', ratio, goal ? `${format(balance)} of ${format(goal)}` : 'No savings goal set');
 }
 
+function renderTrend(metric, stats) {
+  $(`#${metric}-trend`).textContent = !stats ? 'Weekly trend unavailable'
+    : metric === 'spending' ? `${habitCharts.paceText(stats)} this week`
+    : habitCharts.change(stats)?.text ?? 'No comparison with last week yet';
+}
+
 function updateStudyCountdown() {
   const remaining = Math.max(0, studyEndClock - performance.now());
   const seconds = Math.ceil(remaining / 1000);
@@ -99,6 +106,7 @@ async function refresh() {
   if (loading) return;
   loading = true;
   try {
+    for (const metric of ['water', 'spending', 'focus']) request(`/stats?metric=${metric}&period=week`).then(stats => renderTrend(metric, stats), () => renderTrend(metric, null));
     const [water, summary, study] = await Promise.all([request('/water/today'),request('/budget/summary'),request('/study/summary')]);
     renderWater(water); renderSavings(summary); renderStudy(study);
     $('#today').textContent = `${habitFormat.day(water.date)} · ${config.timezone}`;

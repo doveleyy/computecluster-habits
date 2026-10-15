@@ -41,6 +41,7 @@
         <div class="reading"><strong id="water-total">—</strong><span id="water-target">of your daily goal</span></div>
         <div class="progress" id="water-progress" role="progressbar" aria-label="Daily drink volume goal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
         <p class="detail" id="water-detail">Fetching today's drinks…</p>
+        <p class="trend"><span id="water-trend">Loading this week…</span><a class="trends-link" id="water-trends">Trends <span aria-hidden="true">→</span></a></p>
         <footer class="card-footer"><span class="label">Resets at midnight</span><a class="open-link" id="open-water">Log a drink <span aria-hidden="true">↗</span></a></footer>
       </section>
       <section class="habit-card savings-card" aria-labelledby="savings-heading">
@@ -70,6 +71,7 @@
         </form>
         <div class="progress" id="savings-progress" role="progressbar" aria-label="Savings goal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
         <p class="detail" id="savings-detail">Fetching your fund balance…</p>
+        <p class="trend"><span id="spending-trend">Loading this week…</span><a class="trends-link" id="spending-trends">Trends <span aria-hidden="true">→</span></a></p>
         <footer class="card-footer"><span class="label">Builds over time</span><a class="open-link" id="open-budget">Open budget <span aria-hidden="true">↗</span></a></footer>
       </section>
       <section class="habit-card study-card" aria-labelledby="study-heading">
@@ -99,12 +101,14 @@
         <div class="reading"><strong id="study-total">—</strong><span>focused today</span></div>
         <div class="progress" id="study-progress" role="progressbar" aria-label="Current focus session progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-hidden="true"><span></span></div>
         <p class="detail" id="study-detail">Fetching today's focus time…</p>
+        <p class="trend"><span id="focus-trend">Loading this week…</span><a class="trends-link" id="focus-trends">Trends <span aria-hidden="true">→</span></a></p>
         <footer class="card-footer"><span class="label">One session at a time</span><a class="open-link" id="open-study">Open study <span aria-hidden="true">↗</span></a></footer>
       </section>
     </div>
   </main>
   <script>window.habitConfig=__HABIT_TRACKER_CONFIG__;</script>
   <script src="__BASE_PATH__/static/format.js?v=__VERSION__" defer></script>
+  <script src="__BASE_PATH__/static/charts.js?v=__VERSION__" defer></script>
   <script src="__BASE_PATH__/static/dashboard.js?v=__VERSION__" defer></script>
 </body>
 </html>
