@@ -14,11 +14,10 @@
   <main class="shell">
     <header class="top"><div><h1 class="title">habit tracker<span class="muted">.</span></h1></div><div class="user" id="user"></div></header>
     __NAVIGATION__
-    <div class="overview-heading"><span id="today" class="label"></span></div>
     <div id="error" class="error" role="alert" hidden><span></span><button type="button" id="retry">Try again</button></div>
     <div class="habit-grid">
       <section class="habit-card water-card" aria-labelledby="water-heading">
-        <header class="card-heading"><div><div class="label">Daily habit</div><h2 id="water-heading">Water</h2></div><span class="badge" id="water-status">Loading…</span></header>
+        <header class="card-heading"><h2 id="water-heading">Water</h2><span class="badge" id="water-status">Loading…</span></header>
         <a class="art-link" id="open-water-art" aria-label="Open water tracker">
           <svg class="pixel-art" viewBox="0 0 64 56" shape-rendering="crispEdges" aria-hidden="true">
             <defs><clipPath id="cup-interior"><path d="M19 12H45V24H43V37H41V44H23V37H21V24H19Z"/></clipPath></defs>
@@ -41,11 +40,10 @@
         <div class="reading"><strong id="water-total">—</strong><span id="water-target">of your daily goal</span></div>
         <div class="progress" id="water-progress" role="progressbar" aria-label="Daily drink volume goal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
         <p class="detail" id="water-detail">Fetching today's drinks…</p>
-        <p class="trend"><span id="water-trend">Loading this week…</span><a class="trends-link" id="water-trends">Trends <span aria-hidden="true">→</span></a></p>
-        <footer class="card-footer"><span class="label">Resets at midnight</span><a class="open-link" id="open-water">Log a drink <span aria-hidden="true">↗</span></a></footer>
+        <footer class="card-footer"><a class="trend-link" id="water-trends"><span id="water-trend">This week…</span> <span aria-hidden="true">›</span></a><a class="open-link" id="open-water">Log a drink <span aria-hidden="true">↗</span></a></footer>
       </section>
       <section class="habit-card savings-card" aria-labelledby="savings-heading">
-        <header class="card-heading"><div><div class="label">Something to look forward to</div><h2 id="savings-heading">Sinking fund</h2></div><span class="badge" id="savings-status">Loading…</span></header>
+        <header class="card-heading"><h2 id="savings-heading">Sinking fund</h2><span class="badge" id="savings-status">Loading…</span></header>
         <a class="art-link" id="open-budget-art" aria-label="Open budget tracker">
           <svg class="pixel-art" viewBox="0 0 64 56" shape-rendering="crispEdges" aria-hidden="true">
             <defs><clipPath id="pig-interior"><path d="M16 23H20V20H37V17H42V24H47V28H53V37H48V41H43V47H37V43H25V47H19V41H15V36H13V27H16Z"/></clipPath></defs>
@@ -71,11 +69,10 @@
         </form>
         <div class="progress" id="savings-progress" role="progressbar" aria-label="Savings goal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
         <p class="detail" id="savings-detail">Fetching your fund balance…</p>
-        <p class="trend"><span id="spending-trend">Loading this week…</span><a class="trends-link" id="spending-trends">Trends <span aria-hidden="true">→</span></a></p>
-        <footer class="card-footer"><span class="label">Builds over time</span><a class="open-link" id="open-budget">Open budget <span aria-hidden="true">↗</span></a></footer>
+        <footer class="card-footer"><a class="trend-link" id="spending-trends"><span id="spending-trend">This week…</span> <span aria-hidden="true">›</span></a><a class="open-link" id="open-budget">Open budget <span aria-hidden="true">↗</span></a></footer>
       </section>
       <section class="habit-card study-card" aria-labelledby="study-heading">
-        <header class="card-heading"><div><div class="label">Time for one thing</div><h2 id="study-heading">Study</h2></div><span class="badge" id="study-status">Loading…</span></header>
+        <header class="card-heading"><h2 id="study-heading">Study</h2><span class="badge" id="study-status">Loading…</span></header>
         <a class="art-link" id="open-study-art" aria-label="Open study tracker">
           <svg class="pixel-art" viewBox="0 0 64 56" shape-rendering="crispEdges" aria-hidden="true">
             <path fill="#281f36" d="M16 8H22V11H26V9H38V11H42V8H48V15H51V30H54V39H49V48H15V39H10V30H13V15H16Z"/>
@@ -101,8 +98,7 @@
         <div class="reading"><strong id="study-total">—</strong><span>focused today</span></div>
         <div class="progress" id="study-progress" role="progressbar" aria-label="Current focus session progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-hidden="true"><span></span></div>
         <p class="detail" id="study-detail">Fetching today's focus time…</p>
-        <p class="trend"><span id="focus-trend">Loading this week…</span><a class="trends-link" id="focus-trends">Trends <span aria-hidden="true">→</span></a></p>
-        <footer class="card-footer"><span class="label">One session at a time</span><a class="open-link" id="open-study">Open study <span aria-hidden="true">↗</span></a></footer>
+        <footer class="card-footer"><a class="trend-link" id="focus-trends"><span id="focus-trend">This week…</span> <span aria-hidden="true">›</span></a><a class="open-link" id="open-study">Open study <span aria-hidden="true">↗</span></a></footer>
       </section>
     </div>
   </main>

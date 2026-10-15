@@ -3,7 +3,6 @@
 .top{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:20px}
 .title{margin:6px 0 0;font:600 clamp(26px,5vw,40px)/1 var(--mono);letter-spacing:-.06em}
 .user{color:var(--muted);font:11px var(--mono);text-align:right}
-.title-row{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 16px}
 .trends-link{display:inline-flex;align-items:center;min-height:30px;color:var(--muted);font:600 10px var(--mono);letter-spacing:.13em;text-decoration:none;text-transform:uppercase}
 .trends-link:hover{color:var(--accent,var(--text))}
 .tabs{display:flex;gap:5px;margin:0 0 20px;padding:4px;border:1px solid var(--line);border-radius:11px;background:#080808;width:max-content}
