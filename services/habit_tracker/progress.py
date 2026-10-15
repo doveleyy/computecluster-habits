@@ -87,6 +87,27 @@ def validate_week(week: date, today: date) -> None:
         raise ValueError("Week is outside the supported date range.") from error
 
 
+def day_segments(
+    session: StudySession, timezone: ZoneInfo, now: datetime
+) -> list[DaySegment]:
+    """Split a saved session at each local midnight, ignoring time after now."""
+    if session.ended_at is None:
+        return []
+    end = min(session.ended_at, now)
+    start = session.started_at
+    day = start.astimezone(timezone).date()
+    segments: list[DaySegment] = []
+    while start < end:
+        midnight = datetime.combine(
+            day + timedelta(days=1), time.min, timezone
+        ).astimezone(UTC)
+        seconds = int((min(end, midnight) - start).total_seconds())
+        if seconds:
+            segments.append(DaySegment(day, seconds))
+        start, day = midnight, day + timedelta(days=1)
+    return segments
+
+
 def build_progress(
     *,
     week_start: date,
@@ -105,6 +126,10 @@ def build_progress(
     end = week_start + timedelta(days=7)
     days: list[ProgressDay] = []
     segments: dict[str, list[DaySegment]] = {}
+    focus: dict[date, list[tuple[StudySession, int]]] = {}
+    for session in sessions:
+        for segment in day_segments(session, timezone, now):
+            focus.setdefault(segment.date, []).append((session, segment.seconds))
     for offset in range(14):
         day = first + timedelta(days=offset)
         if day > today:
@@ -135,30 +160,12 @@ def build_progress(
             categories[purchase.category] = (
                 categories.get(purchase.category, 0) + purchase.amount_cents
             )
-        start_at = datetime.combine(day, time.min, timezone).astimezone(UTC)
-        end_at = datetime.combine(
-            day + timedelta(days=1), time.min, timezone
-        ).astimezone(UTC)
         count = 0
-        for session in sessions:
-            if session.ended_at is None:
-                continue
-            seconds = max(
-                0,
-                int(
-                    (
-                        min(session.ended_at, end_at, now)
-                        - max(session.started_at, start_at)
-                    ).total_seconds()
-                ),
-            )
-            if seconds:
-                count += 1
-                activities[session.activity] = (
-                    activities.get(session.activity, 0) + seconds
-                )
-                if day >= week_start:
-                    segments.setdefault(session.id, []).append(DaySegment(day, seconds))
+        for session, seconds in focus.get(day, []):
+            count += 1
+            activities[session.activity] = activities.get(session.activity, 0) + seconds
+            if day >= week_start:
+                segments.setdefault(session.id, []).append(DaySegment(day, seconds))
         days.append(
             ProgressDay(
                 day,

@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#050505">
   <title>Budget / Habit Tracker</title>
+  <link rel="stylesheet" href="__BASE_PATH__/static/base.css?v=__VERSION__">
+  <link rel="stylesheet" href="__BASE_PATH__/static/charts.css?v=__VERSION__">
   <link rel="stylesheet" href="__BASE_PATH__/static/budget.css?v=__VERSION__">
   <link rel="stylesheet" href="__BASE_PATH__/static/shell.css?v=__VERSION__">
 </head>
@@ -35,11 +37,13 @@
         <div class="history-block"><div class="section-caption"><span class="label">Last 7 days · choose a bar</span><span class="label" id="timezone"></span></div><div class="history" id="history"></div></div>
         <div class="day-breakdown"><div class="day-figures"><div><span class="label">Daily budget</span><strong id="analysis-budget">—</strong></div><div><span class="label">Spent</span><strong id="analysis-spent">—</strong></div><div><span class="label">Remaining</span><strong id="analysis-remaining">—</strong></div></div><div class="label">Spending by category</div><div class="category-breakdown" id="category-breakdown"></div><button class="edit-selected-day" id="edit-selected-day" type="button">LOG / EDIT THIS DAY ↑</button></div>
       </div>
+      <div class="pace-block" aria-labelledby="pace-title"><div class="section-caption"><span class="label" id="pace-title">This month’s pace</span><span class="legend"><span class="current"><i aria-hidden="true"></i>Spent so far</span><span class="target"><i aria-hidden="true"></i>Allowance plan</span></span></div><div id="pace-chart"></div><div class="pace-foot"><span id="pace-status">Loading pace…</span><a class="trends-link" href="__BASE_PATH__/progress?metric=spending&amp;period=month">Trends →</a></div></div>
       <div class="ledger-block"><div class="label">Budget ledger · latest 5</div><div class="ledger" id="ledger"></div></div>
     </section>
   </main>
   <script>window.habitConfig=__HABIT_TRACKER_CONFIG__;</script>
   <script src="__BASE_PATH__/static/format.js?v=__VERSION__" defer></script>
+  <script src="__BASE_PATH__/static/charts.js?v=__VERSION__" defer></script>
   <script src="__BASE_PATH__/static/budget.js?v=__VERSION__" defer></script>
 </body>
 </html>

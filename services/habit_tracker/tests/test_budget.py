@@ -517,8 +517,8 @@ def test_existing_transactions_migrate_to_the_other_category(tmp_path: Path) -> 
 
     budget = BudgetRepository(database_path, timezone)
     budget.initialize()
-    budget.ensure_user(identity, date.today())
-    rows = budget.transactions_for_day(identity, date.today())
+    budget.ensure_user(identity, datetime.now(timezone).date())
+    rows = budget.transactions_for_day(identity, datetime.now(timezone).date())
 
     assert [row.category for row in rows] == ["other"]
 

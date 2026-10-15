@@ -3,8 +3,9 @@
 Habits is one household application with Overview, Water, Budget, Study and
 Progress pages. Each linked platform user owns separate drinks, spending,
 allowances, a sinking fund, savings targets and focus sessions. All pages share
-one process, one container and one SQLite database. Its SQLite schema, money
-rules and web assets are unchanged in version `0.13.1`. This release uses the
+one process, one container and one SQLite database. Its SQLite schema and money
+rules are unchanged in version `0.14.0`. This release adds week, month and year
+statistics on Progress and reads only the days each response shows. It uses the
 published Home Platform client for identity and builds independently of the
 platform repository.
 
@@ -38,7 +39,11 @@ python vendor/hp-app-check.pyz --manifest manifest.template.json --template --im
 The checks cover the existing water, budget, study and progress behavior,
 actual client HTTP identity, denied direct and forged requests, owner
 isolation, immediate revocation, study reads that never wait on the write lock,
-offline identity adoption, unchanged state and publication evidence. The
+offline identity adoption, unchanged state and publication evidence. A cost
+check makes every hot read for a three-year and a four-month history. Each read
+must reuse its thread's SQLite connection and stay within its statement count.
+Each read must hand Python the same rows for both histories. Reads that show
+only recent days must also do the same SQLite work for both. The
 boundary check rejects imports from the platform implementation. The portable
 checker starts only its own disposable containers and reports seven contract
 checks. Start Docker before using it.
@@ -59,6 +64,7 @@ services/habit_tracker/
   budget.py               spending, daily allowances, savings targets, ledger
   study.py                named focus sessions and daily study totals
   progress.py             typed weekly summaries and saved event partitioning
+  stats.py                read-only week, month and year statistics
   state_probe.py          read-only hash of the records this version reads
   templates/              overview, water, budget, study and progress pages
   static/                 page styles and scripts
@@ -103,7 +109,7 @@ stable key only through the repositories' transactional adoption steps, run
 offline from a reviewed mapping; requests never adopt rows.
 
 `/health` checks nothing outside the process. `/ready` checks local SQLite.
-`/version` reports service `habits` and app version `0.13.1`. The app has no
+`/version` reports service `habits` and app version `0.14.0`. The app has no
 scheduled maintenance. Expired focus sessions complete on the owner's next
 request.
 
@@ -146,6 +152,24 @@ dates; dates before a budget plan have no allowance. Spending includes only
 purchases. Saved focus sessions are split at local midnight. Comparisons
 include completed weekdays only; the total and average explicitly include
 partial today.
+
+`GET /api/stats?metric=water|spending|focus&period=week|month|year&anchor=YYYY-MM-DD`
+returns one metric for the week (Monday to Sunday), calendar month or
+calendar year containing `anchor`, together with the period before it.
+Omitting `anchor` selects today. A future anchor is refused. So is an anchor
+whose period, previous period and heatmap together span more than 731 local
+days, which keeps every request to at most two years of records.
+Week and month buckets are days and year buckets are months. Values are
+millilitres, cents of purchases or focus seconds, and future buckets are null.
+Water days are judged against the current goal because goals have no history.
+Spending days are judged against the allowance effective on that day, and days
+before the budget plan have no allowance. A day counts for focus when it has
+any focus. The comparison with the previous period covers the same number of
+completed days. The response also has a 365-day heatmap and streak ending
+today, a breakdown by drink type, category or activity, an hour-of-day
+histogram that omits backdated entries, and cumulative pace for water and
+spending weeks and months. The route reads each table once over one date range
+and writes nothing except the existing completion of expired focus sessions.
 
 Water's goal calendar and Budget's date controls select the day shown in the
 logging and activity cards. Entries added while a past day is selected are

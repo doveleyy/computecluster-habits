@@ -9,6 +9,7 @@ $('#user').textContent = config.displayName;
 for (const selector of ['#open-water', '#open-water-art']) $(selector).href = `${config.basePath}/water`;
 for (const selector of ['#open-budget', '#open-budget-art']) $(selector).href = `${config.basePath}/budget`;
 for (const selector of ['#open-study', '#open-study-art']) $(selector).href = `${config.basePath}/study`;
+for (const metric of ['water', 'spending', 'focus']) $(`#${metric}-trends`).href = `${config.basePath}/progress?metric=${metric}`;
 
 async function request(path, options = {}) {
   const response = await fetch(`${config.basePath}/api${path}`, {
@@ -36,7 +37,7 @@ function renderWater(water) {
   $('#water-status').textContent = ratio >= 1 ? 'Goal reached' : `${Math.round(ratio * 100)}% today`;
   $('#water-liquid').setAttribute('transform', `translate(0 ${32 - Math.round(clamp(ratio) * 16) * 2})`);
   const remainder = Math.max(0, water.goal_ml - water.total_ml);
-  $('#water-detail').textContent = remainder ? `${remainder.toLocaleString()} ml to go. One glass at a time.` : 'Daily goal reached. Your extra drinks are still recorded.';
+  $('#water-detail').textContent = remainder ? `${remainder.toLocaleString()} ml to go` : `${(water.total_ml - water.goal_ml).toLocaleString()} ml over goal`;
   progress('#water-progress', ratio, `${water.total_ml} of ${water.goal_ml} millilitres`);
 }
 
@@ -51,16 +52,22 @@ function renderSavings(summary) {
   $('#goal-trigger').textContent = goal ? `of ${format(goal)} · edit goal` : 'Set a savings goal';
   $('#savings-status').textContent = !goal ? 'No goal yet' : ratio >= 1 ? 'Goal reached' : `${Math.round(clamp(ratio) * 100)}% saved`;
   $('#pig-fill').setAttribute('transform', `translate(0 ${32 - Math.round(clamp(ratio) * 16) * 2})`);
-  const pending = summary.pending_surplus_cents ? ` ${format(summary.pending_surplus_cents)} pending from today.` : '';
-  $('#savings-detail').textContent = (goal ? balance >= goal ? 'You reached your target. Make something good of it.' : `${format(goal - balance)} until your goal.` : 'Give your savings something to aim for.') + pending;
+  const pending = summary.pending_surplus_cents ? `+${format(summary.pending_surplus_cents)} pending today` : '';
+  $('#savings-detail').textContent = [goal && balance < goal ? `${format(goal - balance)} to goal` : '', pending].filter(Boolean).join(' · ');
   progress('#savings-progress', ratio, goal ? `${format(balance)} of ${format(goal)}` : 'No savings goal set');
+}
+
+function renderTrend(metric, stats) {
+  $(`#${metric}-trend`).textContent = !stats ? 'Trend unavailable'
+    : metric === 'spending' ? habitCharts.paceText(stats)
+    : habitCharts.change(stats)?.text ?? 'Trends';
 }
 
 function updateStudyCountdown() {
   const remaining = Math.max(0, studyEndClock - performance.now());
   const seconds = Math.ceil(remaining / 1000);
   const clock = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-  $('#study-detail').textContent = `${$('#study-detail').dataset.activity} · ${clock} remaining`;
+  $('#study-detail').textContent = `${$('#study-detail').dataset.activity} · ${clock} left`;
   progress('#study-progress', 1 - remaining / studyDurationMs, `${clock} remaining`);
   if (remaining === 0) {
     clearInterval(studyTimer);
@@ -81,9 +88,7 @@ function renderStudy(study) {
   $('#study-status').textContent = active ? 'Focusing' : 'Ready';
   $('#study-progress').setAttribute('aria-hidden', String(!active));
   if (!active) {
-    $('#study-detail').textContent = study.today_seconds
-      ? 'Focus time saved. Ready for another session?'
-      : 'No focus time yet. Start whenever you are ready.';
+    $('#study-detail').textContent = 'No session running';
     return;
   }
   $('#study-detail').dataset.activity = active.activity;
@@ -99,9 +104,9 @@ async function refresh() {
   if (loading) return;
   loading = true;
   try {
+    for (const metric of ['water', 'spending', 'focus']) request(`/stats?metric=${metric}&period=week`).then(stats => renderTrend(metric, stats), () => renderTrend(metric, null));
     const [water, summary, study] = await Promise.all([request('/water/today'),request('/budget/summary'),request('/study/summary')]);
     renderWater(water); renderSavings(summary); renderStudy(study);
-    $('#today').textContent = `${habitFormat.day(water.date)} · ${config.timezone}`;
     $('#error').hidden = true;
     clearTimeout(resetTimer);
     resetTimer = setTimeout(refresh, Math.max(1000, new Date(summary.next_reset_at).getTime() - Date.now() + 1000));
