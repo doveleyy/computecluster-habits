@@ -459,11 +459,15 @@ class BudgetRepository:
         return cursor.rowcount == 1
 
     def summary(self, identity: str, local_day: date) -> BudgetSummary:
-        days = self._days(identity, local_day)
-        today = days[-1]
+        with self._connect() as connection:
+            start_day = self._start_day(connection, identity, local_day)
+            changes = self._allowance_changes(connection, identity, local_day)
+            completed_net = _allowance_total(
+                changes, start_day, local_day
+            ) - self._spent_total(connection, identity, start_day, local_day)
+            (today,) = self._days(connection, identity, local_day, local_day)
         transactions = self.transactions_for_day(identity, local_day)
         contribution_cents, redemption_cents = self._fund_movements(identity)
-        completed_net = sum(day.net_cents for day in days[:-1])
         settled_fund = completed_net + contribution_cents - redemption_cents
         today_overage = min(today.net_cents, 0)
         return BudgetSummary(
@@ -479,26 +483,64 @@ class BudgetRepository:
         )
 
     def history(self, identity: str, local_day: date, days: int) -> list[BudgetDay]:
-        all_days = self._days(identity, local_day)
-        return all_days[-days:]
+        with self._connect() as connection:
+            start_day = self._start_day(connection, identity, local_day)
+            first = max(start_day, local_day - timedelta(days=days - 1))
+            return self._days(connection, identity, first, local_day)
 
     def day(self, identity: str, local_day: date) -> BudgetDay:
-        return self._days(identity, local_day)[-1]
+        with self._connect() as connection:
+            self._start_day(connection, identity, local_day)
+            (day,) = self._days(connection, identity, local_day, local_day)
+        return day
 
     def fund_ledger(
         self, identity: str, local_day: date, limit: int
     ) -> list[FundEntry]:
-        entries = [
-            FundEntry(
-                key=f"settlement:{day.day.isoformat()}",
-                entry_date=day.day,
-                kind="daily_settlement",
-                amount_cents=day.net_cents,
-                description="Daily surplus" if day.net_cents >= 0 else "Daily overage",
-            )
-            for day in self._days(identity, local_day)[:-1]
-            if day.net_cents != 0
-        ]
+        movements = self._fund_entries(identity)
+        with self._connect() as connection:
+            start_day = self._start_day(connection, identity, local_day)
+            # Settle backwards from yesterday, widening the window until no
+            # older settlement could enter the latest ``limit`` entries.
+            first = max(start_day, local_day - timedelta(days=limit + 31))
+            while True:
+                entries = sorted(
+                    movements
+                    + [
+                        FundEntry(
+                            key=f"settlement:{day.day.isoformat()}",
+                            entry_date=day.day,
+                            kind="daily_settlement",
+                            amount_cents=day.net_cents,
+                            description=(
+                                "Daily surplus"
+                                if day.net_cents >= 0
+                                else "Daily overage"
+                            ),
+                        )
+                        for day in self._days(
+                            connection,
+                            identity,
+                            first,
+                            local_day - timedelta(days=1),
+                        )
+                        if day.net_cents != 0
+                    ],
+                    key=lambda entry: (
+                        entry.entry_date,
+                        entry.occurred_at or datetime.min.replace(tzinfo=UTC),
+                        entry.key,
+                    ),
+                    reverse=True,
+                )[:limit]
+                if first == start_day or (
+                    len(entries) == limit and entries[-1].entry_date >= first
+                ):
+                    return entries
+                first = max(start_day, first - (local_day - first))
+
+    def _fund_entries(self, identity: str) -> list[FundEntry]:
+        entries: list[FundEntry] = []
         with self._connect() as connection:
             rows = connection.execute(
                 """
@@ -551,15 +593,7 @@ class BudgetRepository:
                     new_amount_cents=new_amount,
                 )
             )
-        entries.sort(
-            key=lambda entry: (
-                entry.entry_date,
-                entry.occurred_at or datetime.min.replace(tzinfo=UTC),
-                entry.key,
-            ),
-            reverse=True,
-        )
-        return entries[:limit]
+        return entries
 
     @staticmethod
     def _budget_on_date(
@@ -731,59 +765,70 @@ class BudgetRepository:
             raise LookupError("budget user is not initialized")
         return date.fromisoformat(str(row[0]))
 
-    def _days(self, identity: str, end_day: date) -> list[BudgetDay]:
-        with self._connect() as connection:
-            setting = connection.execute(
-                "SELECT plan_start_date FROM budget_settings WHERE identity = ?",
-                (identity,),
-            ).fetchone()
-            changes = connection.execute(
+    @staticmethod
+    def _start_day(
+        connection: sqlite3.Connection, identity: str, end_day: date
+    ) -> date:
+        """First settled day: the plan start, or ``end_day`` if that is earlier."""
+        setting = connection.execute(
+            "SELECT plan_start_date FROM budget_settings WHERE identity = ?",
+            (identity,),
+        ).fetchone()
+        if setting is None:
+            raise LookupError("budget user is not initialized")
+        return min(date.fromisoformat(str(setting[0])), end_day)
+
+    @staticmethod
+    def _allowance_changes(
+        connection: sqlite3.Connection, identity: str, last: date
+    ) -> list[tuple[date, int]]:
+        return [
+            (date.fromisoformat(str(change_day)), int(amount))
+            for change_day, amount in connection.execute(
                 """
                 SELECT effective_date, amount_cents
                 FROM daily_budget_changes
                 WHERE identity = ? AND effective_date <= ?
                 ORDER BY effective_date
                 """,
-                (identity, end_day.isoformat()),
-            ).fetchall()
-            transaction_rows = connection.execute(
-                """
-                SELECT amount_cents, occurred_at
-                FROM budget_transactions
-                WHERE owner_identity = ? AND kind = 'daily_spend'
-                """,
-                (identity,),
-            ).fetchall()
-        if setting is None:
-            raise LookupError("budget user is not initialized")
-        start_day = date.fromisoformat(str(setting[0]))
-        if start_day > end_day:
-            start_day = end_day
+                (identity, last.isoformat()),
+            )
+        ]
+
+    def _days(
+        self, connection: sqlite3.Connection, identity: str, first: date, last: date
+    ) -> list[BudgetDay]:
+        """Each local day from ``first`` to ``last``; reads only those days."""
+        if first > last:
+            return []
+        start, _ = self._utc_bounds(first)
+        _, end = self._utc_bounds(last)
         spent_by_day: dict[date, int] = {}
-        for amount_cents, occurred_at in transaction_rows:
+        for amount_cents, occurred_at in connection.execute(
+            """
+            SELECT amount_cents, occurred_at
+            FROM budget_transactions
+            WHERE owner_identity = ? AND kind = 'daily_spend'
+              AND occurred_at >= ? AND occurred_at < ?
+            """,
+            (identity, start.isoformat(), end.isoformat()),
+        ):
             transaction_day = (
                 datetime.fromisoformat(str(occurred_at))
                 .astimezone(self._timezone)
                 .date()
             )
-            if start_day <= transaction_day <= end_day:
-                spent_by_day[transaction_day] = spent_by_day.get(
-                    transaction_day, 0
-                ) + int(amount_cents)
-        parsed_changes = [
-            (date.fromisoformat(str(change_day)), int(amount))
-            for change_day, amount in changes
-        ]
+            spent_by_day[transaction_day] = spent_by_day.get(transaction_day, 0) + int(
+                amount_cents
+            )
+        changes = self._allowance_changes(connection, identity, last)
         result: list[BudgetDay] = []
         change_index = 0
         current_budget = 0
-        day = start_day
-        while day <= end_day:
-            while (
-                change_index < len(parsed_changes)
-                and parsed_changes[change_index][0] <= day
-            ):
-                current_budget = parsed_changes[change_index][1]
+        day = first
+        while day <= last:
+            while change_index < len(changes) and changes[change_index][0] <= day:
+                current_budget = changes[change_index][1]
                 change_index += 1
             result.append(
                 BudgetDay(
@@ -794,6 +839,28 @@ class BudgetRepository:
             )
             day += timedelta(days=1)
         return result
+
+    def _spent_total(
+        self,
+        connection: sqlite3.Connection,
+        identity: str,
+        first: date,
+        end_exclusive: date,
+    ) -> int:
+        if first >= end_exclusive:
+            return 0
+        start, _ = self._utc_bounds(first)
+        end, _ = self._utc_bounds(end_exclusive)
+        row = connection.execute(
+            """
+            SELECT COALESCE(SUM(amount_cents), 0)
+            FROM budget_transactions
+            WHERE owner_identity = ? AND kind = 'daily_spend'
+              AND occurred_at >= ? AND occurred_at < ?
+            """,
+            (identity, start.isoformat(), end.isoformat()),
+        ).fetchone()
+        return int(row[0])
 
     def _fund_movements(self, identity: str) -> tuple[int, int]:
         with self._connect() as connection:
@@ -820,3 +887,24 @@ class BudgetRepository:
 
     def _connect(self) -> sqlite3.Connection:
         return connect(self._database_path)
+
+
+def _allowance_total(
+    changes: list[tuple[date, int]], first: date, end_exclusive: date
+) -> int:
+    """Sum the allowance in force on each day from ``first`` to ``end_exclusive``.
+
+    ``changes`` is sorted by effective date; days before the first change have
+    no allowance.
+    """
+    total = 0
+    amount = 0
+    day = first
+    for change_day, change_amount in changes:
+        if change_day >= end_exclusive:
+            break
+        if change_day > day:
+            total += amount * (change_day - day).days
+            day = change_day
+        amount = change_amount
+    return total + amount * max(0, (end_exclusive - day).days)
