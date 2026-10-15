@@ -207,27 +207,9 @@ class StudyRepository:
     ) -> list[StudySession]:
         start, _ = self._utc_bounds(first)
         end, _ = self._utc_bounds(end_exclusive)
-        lower = start - MAX_SESSION_DURATION
         with self._connect() as connection:
             self._complete_expired(connection, owner, now)
-            rows = connection.execute(
-                "SELECT * FROM study_sessions WHERE owner_identity = ? "
-                "AND status != 'active' AND started_at >= ? AND started_at < ? "
-                "AND ended_at > ? UNION "
-                "SELECT * FROM study_sessions WHERE owner_identity = ? "
-                f"AND {LONG_SESSION_SQL} "
-                "AND started_at < ? AND ended_at > ?",
-                (
-                    owner,
-                    lower.isoformat(),
-                    end.isoformat(),
-                    start.isoformat(),
-                    owner,
-                    end.isoformat(),
-                    start.isoformat(),
-                ),
-            ).fetchall()
-        return [self._session(row) for row in rows]
+            return self._saved_overlapping(connection, owner, start, end)
 
     def summary(self, owner: str, now: datetime | None = None) -> StudySummary:
         now = now or datetime.now(UTC)
@@ -239,14 +221,7 @@ class StudyRepository:
                 (owner,),
             ).fetchone()
             day_start, day_end = self._utc_bounds(now.astimezone(self._timezone).date())
-            total_rows = connection.execute(
-                """
-                SELECT * FROM study_sessions
-                WHERE owner_identity = ? AND status != 'active'
-                    AND started_at < ? AND ended_at > ?
-                """,
-                (owner, day_end.isoformat(), day_start.isoformat()),
-            ).fetchall()
+            today = self._saved_overlapping(connection, owner, day_start, day_end)
             recent_rows = connection.execute(
                 """
                 SELECT * FROM study_sessions
@@ -256,8 +231,7 @@ class StudyRepository:
                 (owner,),
             ).fetchall()
         today_seconds = 0
-        for row in total_rows:
-            session = self._session(row)
+        for session in today:
             assert session.ended_at is not None
             overlap_start = max(session.started_at, day_start)
             overlap_end = min(session.ended_at, day_end)
@@ -279,15 +253,9 @@ class StudyRepository:
         _, range_end = self._utc_bounds(end_day)
         with self._connect() as connection:
             self._complete_expired(connection, owner, now)
-            rows = connection.execute(
-                """
-                SELECT * FROM study_sessions
-                WHERE owner_identity = ? AND status != 'active'
-                    AND started_at < ? AND ended_at > ?
-                """,
-                (owner, range_end.isoformat(), range_start.isoformat()),
-            ).fetchall()
-        sessions = [self._session(row) for row in rows]
+            sessions = self._saved_overlapping(
+                connection, owner, range_start, range_end
+            )
         result: list[StudyDaySummary] = []
         for index in range(days):
             day = first_day + timedelta(days=index)
@@ -302,6 +270,38 @@ class StudyRepository:
                 )
             result.append({"date": day.isoformat(), "total_seconds": total_seconds})
         return result
+
+    @classmethod
+    def _saved_overlapping(
+        cls,
+        connection: sqlite3.Connection,
+        owner: str,
+        start: datetime,
+        end: datetime,
+    ) -> list[StudySession]:
+        """Saved sessions overlapping [start, end), without reading older ones.
+
+        Only a long session, which the partial index finds, can start more
+        than ``MAX_SESSION_DURATION`` before ``start`` and still overlap.
+        """
+        rows = connection.execute(
+            "SELECT * FROM study_sessions WHERE owner_identity = ? "
+            "AND status != 'active' AND started_at >= ? AND started_at < ? "
+            "AND ended_at > ? UNION "
+            "SELECT * FROM study_sessions WHERE owner_identity = ? "
+            f"AND {LONG_SESSION_SQL} "
+            "AND started_at < ? AND ended_at > ?",
+            (
+                owner,
+                (start - MAX_SESSION_DURATION).isoformat(),
+                end.isoformat(),
+                start.isoformat(),
+                owner,
+                end.isoformat(),
+                start.isoformat(),
+            ),
+        ).fetchall()
+        return [cls._session(row) for row in rows]
 
     @staticmethod
     def _complete_expired(

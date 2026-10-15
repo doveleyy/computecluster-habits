@@ -1,5 +1,6 @@
+import random
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -11,6 +12,9 @@ from services.habit_tracker.study import (
     StudySessionNotActiveError,
 )
 from services.habit_tracker.tests.members import anonymous, client, owner
+from services.habit_tracker.water import WaterRepository
+
+OWNER = owner("study-totals@example.test")
 
 
 def test_study_page_and_identity_boundary(tmp_path: Path) -> None:
@@ -168,3 +172,49 @@ def test_concurrent_start_has_one_winner(tmp_path: Path) -> None:
         results = list(pool.map(lambda _: start_one(), range(2)))
     assert results.count("conflict") == 1
     assert len(set(results)) == 2
+
+
+def test_daily_totals_count_every_overlapping_saved_session(tmp_path: Path) -> None:
+    timezone = ZoneInfo("America/New_York")
+    repository = StudyRepository(tmp_path / "study.db", timezone)
+    WaterRepository(tmp_path / "study.db", timezone).initialize()
+    WaterRepository(tmp_path / "study.db", timezone).ensure_user(OWNER, "Member")
+    repository.initialize()
+    rng = random.Random(2026)
+    now = datetime(2025, 11, 3, 15, tzinfo=UTC)
+    sessions = []
+    for index in range(300):
+        started = now - timedelta(minutes=rng.randrange(20, 60 * 24 * 40))
+        # Legacy rows may run for days; current ones stop within 180 minutes.
+        minutes = rng.choice((1, 25, 179, 180, 181, 600, 60 * 24 * 3))
+        ended = min(started + timedelta(minutes=minutes), now)
+        sessions.append((started, ended))
+        status = rng.choice(("stopped", "completed"))
+        with repository._connect() as connection:
+            connection.execute(
+                "INSERT INTO study_sessions VALUES (?, ?, 'Fictional', ?, ?, ?, ?, ?)",
+                (
+                    f"session-{index}",
+                    OWNER,
+                    min(minutes, 180),
+                    started.isoformat(),
+                    (started + timedelta(minutes=minutes)).isoformat(),
+                    ended.isoformat(),
+                    status,
+                ),
+            )
+
+    def expected(day: date) -> int:
+        start = datetime.combine(day, time.min, timezone).astimezone(UTC)
+        end = datetime.combine(day + timedelta(days=1), time.min, timezone)
+        return sum(
+            max(0, int((min(ended, end) - max(started, start)).total_seconds()))
+            for started, ended in sessions
+        )
+
+    today = now.astimezone(timezone).date()
+    assert repository.summary(OWNER, now)["today_seconds"] == expected(today)
+    history = repository.history(OWNER, today, 31, now)
+    assert [day["total_seconds"] for day in history] == [
+        expected(today - timedelta(days=30 - offset)) for offset in range(31)
+    ]
