@@ -36,6 +36,19 @@ docker build -t habits:local .
 python vendor/hp-app-check.pyz --manifest manifest.template.json --template --image habits:local --json
 ```
 
+Every page takes its look from `DESIGN.md` and
+`services/habit_tracker/static/tokens.css`, which are byte-identical copies of
+the Home Platform design system. Stylesheets and scripts hold no raw spacing,
+type size, radius, letter spacing, colour or breakpoint.
+`tests/test_design_tokens.py` fails when one appears. After a change to
+`templates/` or `static/`, run the layout checker. It drives every page at every
+width on fictional seeded data and fails when two things overlap.
+
+```sh
+python -m playwright install chromium   # once, or set CHROME to a Chromium
+python -m tools.check_layout
+```
+
 The checks cover the existing water, budget, study and progress behavior,
 actual client HTTP identity, denied direct and forged requests, owner
 isolation, immediate revocation, study reads that never wait on the write lock,
@@ -67,7 +80,7 @@ services/habit_tracker/
   stats.py                read-only week, month and year statistics
   state_probe.py          read-only hash of the records this version reads
   templates/              overview, water, budget, study and progress pages
-  static/                 page styles and scripts
+  static/                 tokens.css, page styles and scripts
   tests/                  app, data, migration and authorization checks
 ```
 

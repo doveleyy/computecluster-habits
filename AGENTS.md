@@ -10,6 +10,12 @@ append-only audits and web assets unchanged unless a reviewed change says
 otherwise. A schema change needs a migration plan and a state-probe comparison
 on a disposable copy of old state.
 
+Web assets follow `DESIGN.md`. `static/tokens.css` and `DESIGN.md` are
+byte-identical copies shared with the platform: never edit one here alone.
+Stylesheets and scripts take every value from a token, and
+`tests/test_design_tokens.py` enforces it. After changing `templates/` or
+`static/`, run `python -m tools.check_layout`.
+
 Identity must resolve each opaque gateway assertion through the client. Never
 add a raw proxy-header identity fallback, a caller-chosen user or a
 request-time identity cache. Existing users' reads must not take the SQLite
