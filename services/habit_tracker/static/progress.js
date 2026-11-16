@@ -9,21 +9,21 @@ document.getElementById("user").textContent = config.displayName;
 const HEATMAP_DAYS = 365, READ_LIMIT_DAYS = 731;
 const METRICS = {
   water: {
-    accent:"var(--water)", hero:"Water", chart:"water", lowerIsBetter:false,
+    hero:"Water", chart:"water", lowerIsBetter:false,
     streak:"Days in a row at the goal, judged against today’s goal",
     metTile:"Goal met", metCaption:"reached today’s goal", best:"Best", markMet:true, metLabel:"goal met",
     breakdown:"Drink mix", humanize:true, hours:"Drinks by hour logged",
     empty:{title:"No drinks logged yet", body:"Log a drink on Water and your trend starts here."},
   },
   spending: {
-    accent:"var(--money)", hero:"Spent", chart:"spending", lowerIsBetter:true,
+    hero:"Spent", chart:"spending", lowerIsBetter:true,
     streak:"Days in a row within the daily allowance",
     metTile:"Within allowance", metCaption:"stayed within the allowance", best:"Lowest", markMet:true, metLabel:"within allowance",
     breakdown:"Where it went", humanize:true, hours:"Purchases by hour logged",
     empty:{title:"No spending recorded yet", body:"Record a purchase on Budget and your pace shows here."},
   },
   focus: {
-    accent:"var(--focus)", hero:"Focus", chart:"focus", lowerIsBetter:false,
+    hero:"Focus", chart:"focus", lowerIsBetter:false,
     streak:"Days in a row with any saved focus",
     metTile:"Days with focus", metCaption:"had saved focus", best:"Best", markMet:false, metLabel:"",
     breakdown:"What you focused on", humanize:false, hours:"Focus time by hour",
@@ -116,7 +116,7 @@ async function load(notice = "") {
 }
 
 function pressSwitches() {
-  document.documentElement.style.setProperty("--accent", METRICS[view.metric].accent);
+  document.documentElement.dataset.metric = view.metric;
   for (const button of document.querySelectorAll("[data-metric]")) button.setAttribute("aria-pressed", String(button.dataset.metric === view.metric));
   for (const button of document.querySelectorAll("[data-period]")) button.setAttribute("aria-pressed", String(button.dataset.period === view.period));
 }

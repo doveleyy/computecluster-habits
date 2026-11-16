@@ -15,7 +15,7 @@ async function request(path, options = {}) {
   }
   return response.status === 204 ? null : response.json();
 }
-function show(text, error = false) { message.textContent = text; message.style.color = error ? "var(--danger)" : "var(--muted)"; }
+function show(text, error = false) { message.textContent = text; message.classList.toggle("error", error); }
 function clockText(milliseconds) {
   const seconds = Math.ceil(Math.max(0, milliseconds) / 1000);
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;

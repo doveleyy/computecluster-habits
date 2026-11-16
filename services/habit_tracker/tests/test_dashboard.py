@@ -28,6 +28,7 @@ def test_navigation_assets_and_private_dashboard(tmp_path: Path) -> None:
                 assert f'href="{href}"' in page.text
             assert page.text.count('aria-current="page"') == 1
         for asset in (
+            "tokens",
             "base",
             "dashboard",
             "water",
@@ -45,7 +46,7 @@ def test_navigation_assets_and_private_dashboard(tmp_path: Path) -> None:
         )
 
 
-def test_pages_load_base_then_page_then_shell_styles(tmp_path: Path) -> None:
+def test_pages_load_tokens_base_then_page_then_shell_styles(tmp_path: Path) -> None:
     pages = {
         "/": "dashboard",
         "/water": "water",
@@ -58,7 +59,7 @@ def test_pages_load_base_then_page_then_shell_styles(tmp_path: Path) -> None:
             html = signed_in.get(route).text
             order = [
                 html.index(f"/static/{sheet}.css?v=")
-                for sheet in ("base", page, "shell")
+                for sheet in ("tokens", "base", page, "shell")
             ]
             assert order == sorted(order), route
 
@@ -75,7 +76,8 @@ def test_overview_has_three_cards_and_study_summary(tmp_path: Path) -> None:
     assert page.text.count('viewBox="0 0 64 56"') == 3
     assert 'id="open-study-art"' in page.text
     assert 'id="study-total"' in page.text
-    assert "grid-template-columns:repeat(3,minmax(0,1fr))" in stylesheet
+    compact = "".join(stylesheet.split())
+    assert "grid-template-columns:repeat(3,minmax(0,1fr))" in compact
     assert "request('/study/summary')" in script
     assert summary.status_code == 200
     assert summary.json()["today_seconds"] == 0

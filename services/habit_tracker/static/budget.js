@@ -22,7 +22,7 @@ async function request(path, options = {}) {
   return response.status === 204 ? null : response.json();
 }
 function busy(value) { document.querySelectorAll("button").forEach(button => { button.disabled = value; }); if (!value && state.summary) document.querySelector("#next-day").disabled = state.selectedDate >= state.summary.date; }
-function show(text, error = false) { const node = document.querySelector("#message"); node.textContent = text; node.style.color = error ? "var(--danger)" : "var(--muted)"; }
+function show(text, error = false) { const node = document.querySelector("#message"); node.textContent = text; node.classList.toggle("error", error); }
 function renderMode() {
   document.querySelectorAll("[data-kind]").forEach(button => { const active = button.dataset.kind === state.kind; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
   const historical = state.summary && state.selectedDate !== state.summary.date;

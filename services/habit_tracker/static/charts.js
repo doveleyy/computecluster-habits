@@ -105,7 +105,7 @@ const habitCharts = (() => {
         const label = spec.labels[index];
         if (position % every === 0) node("text", {class:`tick${index === last && spec.highlightLast ? " now" : ""}`, x:x(index), y:height - 6, "text-anchor":"middle"}, svg).textContent = label;
       });
-      if (spec.reference) {
+      if (spec.reference && !spec.empty) {
         node("line", {class:"reference", x1:plot.left, x2:plot.right, y1:y(spec.reference.value), y2:y(spec.reference.value)}, svg);
         node("text", {class:"reference-label", x:plot.right, y:y(spec.reference.value) - 6, "text-anchor":"end"}, svg).textContent = spec.reference.label;
       }
