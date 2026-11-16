@@ -194,7 +194,6 @@ def test_previous_day_analysis_breaks_down_drink_attributes(tmp_path: Path) -> N
     assert 'data-breakdown="temperature"' in page.text
     assert 'id="goal-calendar"' in page.text
     assert 'id="analysis-donut"' in page.text
-    assert "Selected day" in page.text
 
 
 def test_drink_type_defaults_to_water_and_rejects_unknown_type(

@@ -108,8 +108,7 @@ function render(data) {
   if (!state.selectedDate) state.selectedDate = data.date;
   document.querySelector("#today-date").textContent = `Today · ${habitFormat.day(data.date)}`;
   document.querySelector("#today-total").textContent = habitFormat.duration(data.today_seconds);
-  document.querySelector("#focus-heading").textContent = data.active ? "Focus in progress." : "Settle in and study.";
-  document.querySelector("#focus-intro").textContent = data.active ? "Your session keeps going if you leave this page." : "Pick one activity and a focus length. Your session continues if you leave this page.";
+  document.querySelector("#focus-heading").textContent = data.active ? "Focus in progress" : "Focus session";
   document.querySelector("#start-form").hidden = Boolean(data.active);
   document.querySelector("#active-session").hidden = !data.active;
   renderRecent(data.recent);

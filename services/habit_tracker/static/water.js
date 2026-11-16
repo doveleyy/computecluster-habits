@@ -124,7 +124,6 @@ function renderAnalysis(data) {
   document.querySelector("#analysis-progress").textContent = `${data.entry_count} ${data.entry_count === 1 ? "entry" : "entries"} · ${Math.round((data.total_ml / data.goal_ml) * 100)}% of current target`;
   document.querySelector("#next-day").disabled = data.date >= state.today.date;
   document.querySelectorAll("[data-breakdown]").forEach(button => { const active = button.dataset.breakdown === state.analysisBreakdown; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
-  document.querySelector("#mix-caption").textContent = state.analysisBreakdown === "temperature" ? "By temperature" : "By drink type";
   if (state.analysisBreakdown === "temperature") renderBreakdown(data.temperature_breakdown_ml, temperatureLabels);
   else renderBreakdown(data.breakdown_ml, typeMap);
   if (state.calendarMonth === monthKey(data.date)) renderCalendar();

@@ -64,7 +64,7 @@ const habitCharts = (() => {
     const readout = root.querySelector(".chart-readout");
     const box = root.querySelector(".chart-box");
     const svg = node("svg", {preserveAspectRatio:"xMidYMid meet", tabindex:"0", role:"img", "aria-label":spec.description}, box);
-    if (spec.empty) box.insertAdjacentHTML("beforeend", `<div class="chart-empty"><strong>${spec.empty.title}</strong><span>${spec.empty.body}</span></div>`);
+    if (spec.empty) box.insertAdjacentHTML("beforeend", `<div class="chart-empty"><strong>${spec.empty.title}</strong>${spec.empty.body ? `<span>${spec.empty.body}</span>` : ""}</div>`);
     let geometry = null;
 
     function showReadout() {

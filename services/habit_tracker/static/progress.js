@@ -10,23 +10,20 @@ const HEATMAP_DAYS = 365, READ_LIMIT_DAYS = 731;
 const METRICS = {
   water: {
     hero:"Water", chart:"water", lowerIsBetter:false,
-    streak:"Days in a row at the goal, judged against today’s goal",
     metTile:"Goal met", metCaption:"reached today’s goal", best:"Best", markMet:true, metLabel:"goal met",
-    breakdown:"Drink mix", humanize:true, hours:"Drinks by hour logged",
+    breakdown:"Drink mix", humanize:true,
     empty:{title:"No drinks logged yet", body:"Log a drink on Water and your trend starts here."},
   },
   spending: {
     hero:"Spent", chart:"spending", lowerIsBetter:true,
-    streak:"Days in a row within the daily allowance",
     metTile:"Within allowance", metCaption:"stayed within the allowance", best:"Lowest", markMet:true, metLabel:"within allowance",
-    breakdown:"Where it went", humanize:true, hours:"Purchases by hour logged",
+    breakdown:"Where it went", humanize:true,
     empty:{title:"No spending recorded yet", body:"Record a purchase on Budget and your pace shows here."},
   },
   focus: {
     hero:"Focus", chart:"focus", lowerIsBetter:false,
-    streak:"Days in a row with any saved focus",
     metTile:"Days with focus", metCaption:"had saved focus", best:"Best", markMet:false, metLabel:"",
-    breakdown:"What you focused on", humanize:false, hours:"Focus time by hour",
+    breakdown:"What you focused on", humanize:false,
     empty:{title:"No focus saved yet", body:"Finish a session on Study and your time shows here."},
   },
 };
@@ -175,7 +172,7 @@ function renderChart(metric, unit, live, before, hasHistory) {
   $("#chart-legend").innerHTML = legend.map(([style, label]) => `<span class="${style}"><i aria-hidden="true"></i>${escapeHtml(label)}</span>`).join("");
   const goal = data.metric === "water" && data.period !== "year" ? current[0].target : null;
   const empty = !data.summary.total && !previous.some(bucket => bucket.value);
-  const emptyState = empty ? hasHistory ? {title:`Nothing logged this ${PERIODS[data.period]}`, body:"Earlier days are in the heatmap below."} : metric.empty : null;
+  const emptyState = empty ? hasHistory ? {title:`Nothing logged this ${PERIODS[data.period]}`} : metric.empty : null;
   if (pace) {
     habitCharts.pace($("#main-chart"), data, emptyState);
     return;
@@ -199,12 +196,12 @@ function renderChart(metric, unit, live, before, hasHistory) {
 }
 
 function renderTiles(metric, unit, summary) {
-  const tile = (label, value, caption) => `<div class="panel tile"><div class="label">${label}</div><strong>${value}</strong><span>${caption}</span></div>`;
+  const tile = (label, value, caption = "") => `<div class="panel tile"><div class="label">${label}</div><strong>${value}</strong>${caption ? `<span>${caption}</span>` : ""}</div>`;
   const year = data.period === "year";
   const best = summary.total ? summary.best : null;
   const share = summary.days_with_target ? `${Math.round(summary.days_met / summary.days_with_target * 100)}%` : "—";
   $("#tiles").innerHTML = [
-    tile("Current streak", plural(data.streak.current, "day"), metric.streak),
+    tile("Current streak", plural(data.streak.current, "day")),
     tile("Best streak", plural(data.streak.best_in_window, "day"), "Longest run in the last 12 months"),
     tile(metric.metTile, share, summary.days_with_target ? `${summary.days_met} of ${plural(summary.days_with_target, "day")} ${metric.metCaption}` : "No daily allowance set for these days"),
     tile(`${metric.best} ${year ? "month" : "day"}`, best ? unit.value(best.value) : "—", best ? bucketDate(best) : summary.total ? `No completed ${year ? "month" : "day"} yet` : "Nothing logged yet"),
@@ -233,7 +230,7 @@ function renderHours(metric, unit) {
   const peak = Math.max(...hours);
   const busiest = hours.indexOf(peak);
   const clock = hour => `${String(hour).padStart(2, "0")}:00`;
-  $("#hours").innerHTML = `<div class="hour-bars">${hours.map((value, hour) => `<span title="${clock(hour)}–${clock((hour + 1) % 24)} · ${unit.value(value)}" style="--bar:${peak ? value / peak * 100 : 0}%"${!value ? ' class="none"' : hour === busiest ? ' class="peak"' : ""}></span>`).join("")}</div><div class="hour-labels" aria-hidden="true"><span>00</span><span>06</span><span>12</span><span>18</span></div><p class="hours-note">${peak ? `Busiest around ${clock(busiest)}. ${metric.hours} on the day; backdated entries are left out.` : "No timed entries in this period yet."}</p>`;
+  $("#hours").innerHTML = `<div class="hour-bars">${hours.map((value, hour) => `<span title="${clock(hour)}–${clock((hour + 1) % 24)} · ${unit.value(value)}" style="--bar:${peak ? value / peak * 100 : 0}%"${!value ? ' class="none"' : hour === busiest ? ' class="peak"' : ""}></span>`).join("")}</div><div class="hour-labels" aria-hidden="true"><span>00</span><span>06</span><span>12</span><span>18</span></div><p class="hours-note">${peak ? `Busiest around ${clock(busiest)}` : "No timed entries in this period yet."}</p>`;
 }
 
 $("#metric-switch").addEventListener("click", event => {
