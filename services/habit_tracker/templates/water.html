@@ -7,15 +7,16 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Water / Habit Tracker</title>
+  <link rel="stylesheet" href="__BASE_PATH__/static/tokens.css?v=__VERSION__">
   <link rel="stylesheet" href="__BASE_PATH__/static/base.css?v=__VERSION__">
   <link rel="stylesheet" href="__BASE_PATH__/static/water.css?v=__VERSION__">
   <link rel="stylesheet" href="__BASE_PATH__/static/shell.css?v=__VERSION__">
 </head>
 <body>
-  <iframe class="platform-bar" src="/platform/bar?app=habits" title="Home Platform apps" style="display:block;width:100%;height:41px;border:0;flex:none;background:#070707"></iframe>
+  <iframe class="platform-bar" src="/platform/bar?app=habits" title="Home Platform apps"></iframe>
   <main class="shell">
     <header class="top">
-      <div><h1 class="title">water<span style="color:var(--dim)">.</span></h1></div>
+      <div><h1 class="title">water<span class="title-dot">.</span></h1></div>
       <div class="user" id="user"></div>
     </header>
     __NAVIGATION__
@@ -23,18 +24,18 @@
       <section class="panel hero">
         <div class="hero-row">
           <div><div class="label" id="log-day-label">Today</div><div class="total"><span id="total">—</span><span class="unit"> ml</span></div></div>
-          <button class="goal-button" id="goal-trigger" type="button" title="Change daily target">target <strong id="goal-value">—</strong> ml</button>
-          <form class="goal-edit" id="goal-form" hidden><input id="goal-input" aria-label="Daily target in millilitres" type="number" min="250" max="10000" step="50" inputmode="numeric" required><button type="submit">SAVE</button></form>
+          <button class="goal-button text-button" id="goal-trigger" type="button" title="Change daily target">target <strong id="goal-value">—</strong> ml</button>
+          <form class="goal-edit" id="goal-form" hidden><input id="goal-input" aria-label="Daily target in millilitres" type="number" min="250" max="10000" step="50" inputmode="numeric" required><button class="primary" type="submit">SAVE</button></form>
         </div>
         <div class="meter"><span class="fill" id="fill"></span></div>
-        <div class="drink-picker"><div class="label">Drink type</div><div class="type-options" id="drink-types"></div></div>
+        <div class="drink-picker"><div class="label">Drink type</div><div class="type-options chips" id="drink-types"></div></div>
         <div class="attributes">
-          <div class="choice-group"><div class="label">Temperature</div><div class="choice-options" id="temperature-options"><button type="button" data-temperature="hot">Hot</button><button type="button" data-temperature="normal">Normal</button><button type="button" data-temperature="iced">Iced</button></div></div>
-          <div class="choice-group unavailable" id="sweetness-group"><div class="label">Sweetness <span class="choice-hint">sweetened drinks</span></div><div class="choice-options" id="sweetness-options"><button type="button" data-sweetness="none">None</button><button type="button" data-sweetness="less">Less</button><button type="button" data-sweetness="regular">Regular</button><button type="button" data-sweetness="extra">Extra</button></div></div>
+          <div class="choice-group"><div class="label">Temperature</div><div class="choice-options chips" id="temperature-options"><button type="button" data-temperature="hot" data-kind="hot">Hot</button><button type="button" data-temperature="normal" data-kind="normal">Normal</button><button type="button" data-temperature="iced" data-kind="iced">Iced</button></div></div>
+          <div class="choice-group unavailable" id="sweetness-group"><div class="label">Sweetness <span class="choice-hint">sweetened drinks</span></div><div class="choice-options chips" id="sweetness-options"><button type="button" data-sweetness="none">None</button><button type="button" data-sweetness="less">Less</button><button type="button" data-sweetness="regular">Regular</button><button type="button" data-sweetness="extra">Extra</button></div></div>
         </div>
         <div class="amount-actions">
           <div class="quick"><button data-amount="250">+ 250 ml</button><button data-amount="500">+ 500 ml</button></div>
-          <form class="custom" id="custom-form"><input id="custom-amount" type="number" min="10" max="2000" inputmode="numeric" placeholder="Custom ml" required><button type="submit">ADD</button></form>
+          <form class="custom" id="custom-form"><input id="custom-amount" type="number" min="10" max="2000" inputmode="numeric" placeholder="Custom ml" required><button class="primary" type="submit">ADD</button></form>
         </div>
         <div class="message" id="message"></div>
       </section>
@@ -46,15 +47,14 @@
     <section class="panel analytics">
       <div class="panel-head analysis-head">
         <div><span class="panel-title">Goal calendar</span><span class="analysis-date" id="calendar-target"></span></div>
-        <div class="month-controls"><button type="button" id="previous-month" aria-label="Previous month">←</button><span id="calendar-month"></span><button type="button" id="next-month" aria-label="Next month">→</button></div>
+        <div class="month-controls"><button class="step" type="button" id="previous-month" aria-label="Previous month">←</button><span id="calendar-month"></span><button class="step" type="button" id="next-month" aria-label="Next month">→</button></div>
       </div>
       <div class="calendar-layout">
         <div class="selected-day">
-          <span class="label">Selected day</span>
           <h2 id="analysis-date-label">—</h2>
           <div class="selected-total"><span id="analysis-total">—</span><span class="analysis-unit"> ml</span></div>
           <p id="analysis-progress"></p>
-          <div class="date-controls"><button type="button" id="previous-day" aria-label="Previous day">←</button><input type="date" id="analysis-date" aria-label="Analysis date" required><button type="button" id="next-day" aria-label="Next day">→</button><button type="button" id="today-day">TODAY</button></div>
+          <div class="date-controls"><button class="step" type="button" id="previous-day" aria-label="Previous day">←</button><input type="date" id="analysis-date" aria-label="Analysis date" required><button class="step" type="button" id="next-day" aria-label="Next day">→</button><button type="button" id="today-day">TODAY</button></div>
           <button class="edit-selected-day" id="edit-selected-day" type="button">LOG / EDIT THIS DAY ↑</button>
         </div>
         <div class="calendar-block">
@@ -65,10 +65,10 @@
       </div>
     </section>
     <section class="panel mix-panel" aria-labelledby="mix-heading">
-      <div class="panel-head mix-head"><span class="panel-title" id="mix-heading">Drink mix</span><div class="analysis-switch" id="analysis-switch"><button type="button" data-breakdown="drink_type" class="active" aria-pressed="true">Drink type</button><button type="button" data-breakdown="temperature" aria-pressed="false">Temperature</button></div></div>
+      <div class="panel-head mix-head"><span class="panel-title" id="mix-heading">Drink mix</span><div class="analysis-switch chips" id="analysis-switch"><button type="button" data-breakdown="drink_type" class="active" aria-pressed="true">Drink type</button><button type="button" data-breakdown="temperature" aria-pressed="false">Temperature</button></div></div>
       <div class="mix-layout">
-        <div class="donut-figure"><svg id="analysis-donut" viewBox="0 0 180 180" role="img" aria-label="Drink mix"><circle cx="90" cy="90" r="62" fill="none" stroke="#262626" stroke-width="22"></circle></svg><div class="donut-core"><strong id="donut-total">—</strong><span>ml total</span></div></div>
-        <div class="mix-detail"><div class="label" id="mix-caption">By drink type</div><div class="breakdown-items" id="analysis-breakdown"></div></div>
+        <div class="donut-figure"><svg id="analysis-donut" viewBox="0 0 180 180" role="img" aria-label="Drink mix"><circle class="donut-base" cx="90" cy="90" r="62"></circle></svg><div class="donut-core"><strong id="donut-total">—</strong><span>ml total</span></div></div>
+        <div class="mix-detail"><div class="breakdown-items" id="analysis-breakdown"></div></div>
         <div class="weekly-panel"><div class="weekly-head"><span class="label">7-day rhythm</span><span class="weekly-max" id="weekly-max">—</span></div><div class="history" id="history" aria-label="Seven days of drinks ending on the selected day"></div></div>
       </div>
     </section>

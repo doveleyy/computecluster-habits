@@ -5,36 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#050505">
   <title>Overview / Habit Tracker</title>
+  <link rel="stylesheet" href="__BASE_PATH__/static/tokens.css?v=__VERSION__">
   <link rel="stylesheet" href="__BASE_PATH__/static/base.css?v=__VERSION__">
   <link rel="stylesheet" href="__BASE_PATH__/static/dashboard.css?v=__VERSION__">
   <link rel="stylesheet" href="__BASE_PATH__/static/shell.css?v=__VERSION__">
 </head>
 <body>
-  <iframe class="platform-bar" src="/platform/bar?app=habits" title="Home Platform apps" style="display:block;width:100%;height:41px;border:0;flex:none;background:#070707"></iframe>
+  <iframe class="platform-bar" src="/platform/bar?app=habits" title="Home Platform apps"></iframe>
   <main class="shell">
-    <header class="top"><div><h1 class="title">habit tracker<span class="muted">.</span></h1></div><div class="user" id="user"></div></header>
+    <header class="top"><div><h1 class="title">habit tracker<span class="title-dot">.</span></h1></div><div class="user" id="user"></div></header>
     __NAVIGATION__
     <div id="error" class="error" role="alert" hidden><span></span><button type="button" id="retry">Try again</button></div>
     <div class="habit-grid">
       <section class="habit-card water-card" aria-labelledby="water-heading">
         <header class="card-heading"><h2 id="water-heading">Water</h2><span class="badge" id="water-status">Loading…</span></header>
         <a class="art-link" id="open-water-art" aria-label="Open water tracker">
-          <svg class="pixel-art" viewBox="0 0 64 56" shape-rendering="crispEdges" aria-hidden="true">
+          <svg class="pixel-art art-water" viewBox="0 0 64 56" shape-rendering="crispEdges" aria-hidden="true">
             <defs><clipPath id="cup-interior"><path d="M19 12H45V24H43V37H41V44H23V37H21V24H19Z"/></clipPath></defs>
-            <path fill="#141d23" d="M14 7H50V24H48V38H46V48H42V50H22V48H18V38H16V24H14Z"/>
+            <path class="c1" d="M14 7H50V24H48V38H46V48H42V50H22V48H18V38H16V24H14Z"/>
             <g clip-path="url(#cup-interior)">
-              <rect fill="#10212c" x="19" y="12" width="26" height="32"/>
+              <rect class="c2" x="19" y="12" width="26" height="32"/>
               <g id="water-liquid" transform="translate(0 32)">
-                <rect fill="#388fbb" x="19" y="12" width="26" height="32"/>
-                <path fill="#61c9ef" d="M19 12H27V14H37V12H45V17H19Z"/>
-                <path fill="#51acd6" d="M23 23H25V30H23ZM25 32H27V37H25Z"/>
+                <rect class="c3" x="19" y="12" width="26" height="32"/>
+                <path class="c4" d="M19 12H27V14H37V12H45V17H19Z"/>
+                <path class="c5" d="M23 23H25V30H23ZM25 32H27V37H25Z"/>
               </g>
             </g>
-            <path fill="#b5d6e1" d="M15 8H49V11H15ZM16 11H19V24H16ZM18 24H21V37H18ZM20 37H23V44H20ZM22 44H42V47H22ZM41 37H44V44H41ZM43 24H46V37H43ZM45 11H48V24H45Z"/>
-            <path fill="#e6f5fa" d="M16 8H46V9H16ZM19 13H21V21H19ZM21 26H23V33H21Z"/>
-            <path fill="#526b77" d="M24 47H40V49H24Z"/>
-            <path fill="#1d252a" d="M17 53H47V54H17Z"/>
-            <path fill="#8cd8f1" d="M8 18H10V20H8ZM53 29H55V31H53Z"/>
+            <path class="c6" d="M15 8H49V11H15ZM16 11H19V24H16ZM18 24H21V37H18ZM20 37H23V44H20ZM22 44H42V47H22ZM41 37H44V44H41ZM43 24H46V37H43ZM45 11H48V24H45Z"/>
+            <path class="c7" d="M16 8H46V9H16ZM19 13H21V21H19ZM21 26H23V33H21Z"/>
+            <path class="c8" d="M24 47H40V49H24Z"/>
+            <path class="c2" d="M17 53H47V54H17Z"/>
+            <path class="c9" d="M8 18H10V20H8ZM53 29H55V31H53Z"/>
           </svg>
         </a>
         <div class="reading"><strong id="water-total">—</strong><span id="water-target">of your daily goal</span></div>
@@ -45,25 +46,25 @@
       <section class="habit-card savings-card" aria-labelledby="savings-heading">
         <header class="card-heading"><h2 id="savings-heading">Sinking fund</h2><span class="badge" id="savings-status">Loading…</span></header>
         <a class="art-link" id="open-budget-art" aria-label="Open budget tracker">
-          <svg class="pixel-art" viewBox="0 0 64 56" shape-rendering="crispEdges" aria-hidden="true">
+          <svg class="pixel-art art-pig" viewBox="0 0 64 56" shape-rendering="crispEdges" aria-hidden="true">
             <defs><clipPath id="pig-interior"><path d="M16 23H20V20H37V17H42V24H47V28H53V37H48V41H43V47H37V43H25V47H19V41H15V36H13V27H16Z"/></clipPath></defs>
-            <path fill="#3e283b" d="M14 21H19V18H35V14H44V21H49V25H56V40H49V44H46V50H35V46H27V50H17V44H12V38H10V26H14Z"/>
+            <path class="c1" d="M14 21H19V18H35V14H44V21H49V25H56V40H49V44H46V50H35V46H27V50H17V44H12V38H10V26H14Z"/>
             <g clip-path="url(#pig-interior)">
-              <rect fill="#352633" x="10" y="14" width="46" height="36"/>
-              <g id="pig-fill" transform="translate(0 32)"><rect fill="#d68aad" x="10" y="15" width="46" height="36"/><path fill="#efb1ca" d="M10 15H56V18H10Z"/></g>
+              <rect class="c2" x="10" y="14" width="46" height="36"/>
+              <g id="pig-fill" transform="translate(0 32)"><rect class="c3" x="10" y="15" width="46" height="36"/><path class="c4" d="M10 15H56V18H10Z"/></g>
             </g>
-            <path fill="#eda9c5" d="M14 21H19V24H16V28H13V35H16V40H20V43H25V46H20V48H18V42H14V38H11V26H14ZM19 19H36V22H19ZM36 15H43V23H40V18H39V24H36ZM43 23H48V28H45V25H43ZM48 26H55V29H48ZM53 29H56V38H53ZM47 38H54V41H47ZM43 41H47V49H37V45H40V47H44V42H25V39H43Z"/>
-            <path fill="#efb1ca" d="M7 27H11V30H7V33H5V28H7Z"/>
-            <path fill="#0e0c12" d="M42 28H45V31H42ZM50 31H52V34H50ZM24 22H33V24H24Z"/>
-            <path fill="#ffe6ab" d="M26 3H32V5H34V11H32V13H26V11H24V5H26Z"/>
-            <path fill="#c69b53" d="M27 5H31V7H28V9H31V11H27ZM32 5H34V11H32Z"/>
-            <path fill="#241923" d="M14 53H50V54H14Z"/>
+            <path class="c5" d="M14 21H19V24H16V28H13V35H16V40H20V43H25V46H20V48H18V42H14V38H11V26H14ZM19 19H36V22H19ZM36 15H43V23H40V18H39V24H36ZM43 23H48V28H45V25H43ZM48 26H55V29H48ZM53 29H56V38H53ZM47 38H54V41H47ZM43 41H47V49H37V45H40V47H44V42H25V39H43Z"/>
+            <path class="c4" d="M7 27H11V30H7V33H5V28H7Z"/>
+            <path class="c6" d="M42 28H45V31H42ZM50 31H52V34H50ZM24 22H33V24H24Z"/>
+            <path class="c7" d="M26 3H32V5H34V11H32V13H26V11H24V5H26Z"/>
+            <path class="c8" d="M27 5H31V7H28V9H31V11H27ZM32 5H34V11H32Z"/>
+            <path class="c9" d="M14 53H50V54H14Z"/>
           </svg>
         </a>
-        <div class="reading"><strong id="fund-total">—</strong><button type="button" id="goal-trigger" class="goal-trigger" disabled>Set a savings goal</button></div>
+        <div class="reading"><strong id="fund-total">—</strong><button type="button" id="goal-trigger" class="goal-trigger text-button" disabled>Set a savings goal</button></div>
         <form id="goal-form" class="goal-form" hidden>
           <label for="goal-input">Savings goal (SGD)</label>
-          <div class="goal-controls"><input id="goal-input" type="number" min="0.01" max="1000000" step="0.01" inputmode="decimal" required><button type="submit">Save</button><button type="button" id="goal-cancel">Cancel</button></div>
+          <div class="goal-controls"><input id="goal-input" type="number" min="0.01" max="1000000" step="0.01" inputmode="decimal" required><button class="primary" type="submit">Save</button><button type="button" id="goal-cancel">Cancel</button></div>
           <button type="button" id="goal-clear" class="text-button">Remove goal</button>
           <p id="goal-message" role="status"></p>
         </form>
@@ -74,25 +75,25 @@
       <section class="habit-card study-card" aria-labelledby="study-heading">
         <header class="card-heading"><h2 id="study-heading">Study</h2><span class="badge" id="study-status">Loading…</span></header>
         <a class="art-link" id="open-study-art" aria-label="Open study tracker">
-          <svg class="pixel-art" viewBox="0 0 64 56" shape-rendering="crispEdges" aria-hidden="true">
-            <path fill="#281f36" d="M16 8H22V11H26V9H38V11H42V8H48V15H51V30H54V39H49V48H15V39H10V30H13V15H16Z"/>
-            <path fill="#896fc1" d="M17 10H21V15H25V13H39V15H43V10H47V16H49V29H46V35H18V29H15V16H17Z"/>
-            <path fill="#b69ae8" d="M18 11H20V17H26V15H38V17H44V11H46V18H48V28H45V33H19V28H16V18H18Z"/>
-            <path fill="#d7c5f4" d="M19 12H20V18H26V16H29V20H23V22H18V18H19ZM35 16H38V18H44V12H45V18H47V22H41V20H35Z"/>
-            <path fill="#3b2d52" d="M20 32H24V35H20ZM40 32H44V35H40Z"/>
-            <path fill="#241b31" d="M22 21H29V28H22ZM35 21H42V28H35Z"/>
-            <path fill="#f5f0ff" d="M23 22H28V27H23ZM36 22H41V27H36Z"/>
-            <path fill="#2a2039" d="M25 23H28V27H25ZM36 23H39V27H36Z"/>
-            <path fill="#f0aa9b" d="M29 29H35V32H33V34H31V32H29Z"/>
-            <path fill="#ca85a6" d="M23 29H26V31H23ZM38 29H41V31H38Z"/>
-            <path fill="#211c2b" d="M9 34H25V36H32V38H39V36H55V49H35V51H29V49H9Z"/>
-            <path fill="#8d77c2" d="M11 36H24V38H29V40H31V47H27V45H23V43H11ZM53 36H40V38H35V40H33V47H37V45H41V43H53Z"/>
-            <path fill="#f7e8c9" d="M12 37H23V39H28V41H30V47H27V45H22V43H12ZM52 37H41V39H36V41H34V47H37V45H42V43H52Z"/>
-            <path fill="#dcc9aa" d="M14 40H23V41H27V42H23V41H14ZM37 42H41V41H50V40H41V41H37Z"/>
-            <path fill="#b49cff" d="M30 38H34V50H30Z"/>
-            <path fill="#57416e" d="M11 47H27V49H30V50H9V48H11ZM37 49H53V47H55V50H34V49Z"/>
-            <path fill="#33273f" d="M13 53H51V54H13Z"/>
-            <path fill="#f7d480" d="M7 15H9V13H11V15H13V17H11V19H9V17H7ZM53 8H55V6H57V8H59V10H57V12H55V10H53Z"/>
+          <svg class="pixel-art art-study" viewBox="0 0 64 56" shape-rendering="crispEdges" aria-hidden="true">
+            <path class="c1" d="M16 8H22V11H26V9H38V11H42V8H48V15H51V30H54V39H49V48H15V39H10V30H13V15H16Z"/>
+            <path class="c2" d="M17 10H21V15H25V13H39V15H43V10H47V16H49V29H46V35H18V29H15V16H17Z"/>
+            <path class="c3" d="M18 11H20V17H26V15H38V17H44V11H46V18H48V28H45V33H19V28H16V18H18Z"/>
+            <path class="c4" d="M19 12H20V18H26V16H29V20H23V22H18V18H19ZM35 16H38V18H44V12H45V18H47V22H41V20H35Z"/>
+            <path class="c5" d="M20 32H24V35H20ZM40 32H44V35H40Z"/>
+            <path class="c1" d="M22 21H29V28H22ZM35 21H42V28H35Z"/>
+            <path class="c6" d="M23 22H28V27H23ZM36 22H41V27H36Z"/>
+            <path class="c1" d="M25 23H28V27H25ZM36 23H39V27H36Z"/>
+            <path class="c7" d="M29 29H35V32H33V34H31V32H29Z"/>
+            <path class="c8" d="M23 29H26V31H23ZM38 29H41V31H38Z"/>
+            <path class="c9" d="M9 34H25V36H32V38H39V36H55V49H35V51H29V49H9Z"/>
+            <path class="c2" d="M11 36H24V38H29V40H31V47H27V45H23V43H11ZM53 36H40V38H35V40H33V47H37V45H41V43H53Z"/>
+            <path class="c10" d="M12 37H23V39H28V41H30V47H27V45H22V43H12ZM52 37H41V39H36V41H34V47H37V45H42V43H52Z"/>
+            <path class="c11" d="M14 40H23V41H27V42H23V41H14ZM37 42H41V41H50V40H41V41H37Z"/>
+            <path class="c12" d="M30 38H34V50H30Z"/>
+            <path class="c13" d="M11 47H27V49H30V50H9V48H11ZM37 49H53V47H55V50H34V49Z"/>
+            <path class="c14" d="M13 53H51V54H13Z"/>
+            <path class="c15" d="M7 15H9V13H11V15H13V17H11V19H9V17H7ZM53 8H55V6H57V8H59V10H57V12H55V10H53Z"/>
           </svg>
         </a>
         <div class="reading"><strong id="study-total">—</strong><span>focused today</span></div>

@@ -5,20 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#050505">
   <title>Progress / Habit Tracker</title>
+  <link rel="stylesheet" href="__BASE_PATH__/static/tokens.css?v=__VERSION__">
   <link rel="stylesheet" href="__BASE_PATH__/static/base.css?v=__VERSION__">
   <link rel="stylesheet" href="__BASE_PATH__/static/charts.css?v=__VERSION__">
   <link rel="stylesheet" href="__BASE_PATH__/static/progress.css?v=__VERSION__">
   <link rel="stylesheet" href="__BASE_PATH__/static/shell.css?v=__VERSION__">
 </head>
 <body>
-  <iframe class="platform-bar" src="/platform/bar?app=habits" title="Home Platform apps" style="display:block;width:100%;height:41px;border:0;flex:none;background:#070707"></iframe>
+  <iframe class="platform-bar" src="/platform/bar?app=habits" title="Home Platform apps"></iframe>
   <main class="shell">
-    <header class="top"><div><h1 class="title">progress<span class="dot">.</span></h1></div><div class="user" id="user"></div></header>
+    <header class="top"><div><h1 class="title">progress<span class="title-dot">.</span></h1></div><div class="user" id="user"></div></header>
     __NAVIGATION__
     <div class="stats-head">
       <div class="tabs switch" role="group" aria-label="Metric" id="metric-switch"><button class="tab" type="button" data-metric="water" aria-pressed="false">Water</button><button class="tab" type="button" data-metric="spending" aria-pressed="false">Spending</button><button class="tab" type="button" data-metric="focus" aria-pressed="false">Focus</button></div>
       <div class="tabs switch" role="group" aria-label="Period" id="period-switch"><button class="tab" type="button" data-period="week" aria-pressed="false">Week</button><button class="tab" type="button" data-period="month" aria-pressed="false">Month</button><button class="tab" type="button" data-period="year" aria-pressed="false">Year</button></div>
-      <div class="period-nav"><button type="button" id="previous-period" data-step="-1" aria-label="Previous period">←</button><span id="period-label">—</span><button type="button" id="next-period" data-step="1" aria-label="Next period">→</button></div>
+      <div class="period-nav"><button class="step" type="button" id="previous-period" data-step="-1" aria-label="Previous period">←</button><span id="period-label">—</span><button class="step" type="button" id="next-period" data-step="1" aria-label="Next period">→</button></div>
     </div>
     <p id="progress-status" role="status"></p>
     <div id="app" aria-busy="true">

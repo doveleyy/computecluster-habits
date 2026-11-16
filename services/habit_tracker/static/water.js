@@ -6,8 +6,6 @@ const state = {today:null,analysisDay:null,selectedDate:null,calendarMonth:null,
 const message = document.querySelector("#message");
 const typeMap = Object.fromEntries(config.drinkTypes.map(type => [type.value, type.label]));
 const sweetened = new Set(config.sweetenedTypes);
-const typeColors = {water:"#56d8ff",supplement_water:"#8eeaff",coffee:"#d59b6a",tea:"#8bcf7b",milk:"#eee8d5",protein_shake:"#c6a57a",juice:"#ffb454",soft_drink:"#d68cff",sports_drink:"#62e6b5",alcohol:"#ff7474",other:"#9b9b9b"};
-const temperatureColors = {hot:"#ff8b5c",normal:"#8eeaff",iced:"#7aa7ff"};
 const temperatureLabels = {hot:"Hot",normal:"Normal",iced:"Iced"};
 const sweetnessLabels = {none:"No sugar",less:"Less sweet",regular:"Regular sweet",extra:"Extra sweet"};
 document.querySelector("#user").textContent = config.displayName;
@@ -18,8 +16,7 @@ async function request(path, options = {}) {
   return response.status === 204 ? null : response.json();
 }
 function busy(value) { document.querySelectorAll("button").forEach(button => { button.disabled = value; }); if (!value && state.today) { document.querySelector("#next-day").disabled = state.selectedDate >= state.today.date; if (state.calendarMonth) renderCalendar(); } }
-function show(text, isError = false) { message.textContent = text; message.style.color = isError ? "var(--danger)" : "var(--muted)"; }
-function kindStyle(type) { return `--kind:${typeColors[type] || typeColors.other}`; }
+function show(text, isError = false) { message.textContent = text; message.classList.toggle("error", isError); }
 function localDate(value) { return new Date(`${value}T12:00:00`); }
 function isoDate(value) { const year = value.getFullYear(); const month = String(value.getMonth() + 1).padStart(2, "0"); const day = String(value.getDate()).padStart(2, "0"); return `${year}-${month}-${day}`; }
 function moveDate(value, offset) { const day = localDate(value); day.setDate(day.getDate() + offset); return isoDate(day); }
@@ -29,14 +26,14 @@ function lastDayOfMonth(value) { const [year, month] = value.split("-").map(Numb
 
 function renderTypes() {
   const root = document.querySelector("#drink-types"); root.innerHTML = "";
-  for (const type of config.drinkTypes) { const button = document.createElement("button"); button.type = "button"; button.dataset.type = type.value; button.className = type.value === state.selectedType ? "active" : ""; button.setAttribute("aria-pressed", String(type.value === state.selectedType)); button.style.cssText = kindStyle(type.value); button.textContent = type.label; root.append(button); }
+  for (const type of config.drinkTypes) { const button = document.createElement("button"); button.type = "button"; button.dataset.type = type.value; button.className = type.value === state.selectedType ? "active" : ""; button.setAttribute("aria-pressed", String(type.value === state.selectedType)); button.dataset.kind = type.value; button.textContent = type.label; root.append(button); }
   const enabled = sweetened.has(state.selectedType); const group = document.querySelector("#sweetness-group"); group.classList.toggle("unavailable", !enabled); group.toggleAttribute("inert", !enabled); group.setAttribute("aria-disabled", String(!enabled));
 }
 function renderAttributes() {
-  document.querySelectorAll("[data-temperature]").forEach(button => { const active = button.dataset.temperature === state.temperature; button.style.cssText = `--kind:${temperatureColors[button.dataset.temperature]}`; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
+  document.querySelectorAll("[data-temperature]").forEach(button => { const active = button.dataset.temperature === state.temperature; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
   document.querySelectorAll("[data-sweetness]").forEach(button => { const active = button.dataset.sweetness === state.sweetness; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
 }
-function renderBreakdown(breakdown, labels, colors) {
+function renderBreakdown(breakdown, labels) {
   const root = document.querySelector("#analysis-breakdown"); root.innerHTML = "";
   const donut = document.querySelector("#analysis-donut"); donut.querySelectorAll(".donut-segment").forEach(segment => segment.remove());
   const values = Object.entries(breakdown).filter(([, amount]) => amount > 0).sort((a, b) => b[1] - a[1]);
@@ -48,13 +45,13 @@ function renderBreakdown(breakdown, labels, colors) {
   const circumference = 2 * Math.PI * 62;
   let offset = 0;
   for (const [key, amount] of values) {
-    const color = colors[key] || typeColors.other;
     const segment = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     segment.classList.add("donut-segment");
-    for (const [name, value] of Object.entries({cx:90,cy:90,r:62,fill:"none",stroke:color,"stroke-width":22,"stroke-dasharray":`${Math.max(0, amount / total * circumference - (values.length > 1 ? 2 : 0))} ${circumference}`,"stroke-dashoffset":-offset,transform:"rotate(-90 90 90)"})) segment.setAttribute(name, value);
+    segment.dataset.kind = key;
+    for (const [name, value] of Object.entries({cx:90,cy:90,r:62,fill:"none","stroke-width":22,"stroke-dasharray":`${Math.max(0, amount / total * circumference - (values.length > 1 ? 2 : 0))} ${circumference}`,"stroke-dashoffset":-offset,transform:"rotate(-90 90 90)"})) segment.setAttribute(name, value);
     donut.append(segment);
     offset += amount / total * circumference;
-    const item = document.createElement("div"); item.className = "breakdown-item"; item.style.cssText = `--kind:${color}`;
+    const item = document.createElement("div"); item.className = "breakdown-item"; item.dataset.kind = key;
     item.innerHTML = `<div class="breakdown-label"><span><span class="dot"></span>${labels[key] || key}</span><strong>${amount.toLocaleString()} ml</strong></div><span class="breakdown-track"><span style="width:${(amount / maximum) * 100}%"></span></span>`;
     root.append(item);
   }
@@ -69,7 +66,7 @@ function renderLog(data) {
   document.querySelector("#entry-count").textContent = `${data.drinks.length} ${data.drinks.length === 1 ? "entry" : "entries"}`;
   const entries = document.querySelector("#entries"); entries.innerHTML = "";
   if (!data.drinks.length) { entries.innerHTML = '<div class="empty">No drinks recorded on this day.</div>'; return; }
-  for (const drink of data.drinks) { const row = document.createElement("div"); row.className = "entry"; const localTime = historical ? "" : habitFormat.time(drink.consumed_at); const details = [temperatureLabels[drink.temperature] || "Normal"]; if (drink.sweetness) details.push(sweetnessLabels[drink.sweetness] || drink.sweetness); row.innerHTML = `<div><div class="entry-amount">${drink.amount_ml} ml <span class="entry-kind" style="${kindStyle(drink.drink_type)}"><span class="dot"></span>${typeMap[drink.drink_type] || "Other"}</span></div><div class="entry-time">${localTime}${localTime ? " · " : ""}<span class="entry-details">${details.join(" · ")}</span></div></div><button class="remove" data-delete="${drink.id}">REMOVE</button>`; entries.append(row); }
+  for (const drink of data.drinks) { const row = document.createElement("div"); row.className = "entry"; const localTime = historical ? "" : habitFormat.time(drink.consumed_at); const details = [temperatureLabels[drink.temperature] || "Normal"]; if (drink.sweetness) details.push(sweetnessLabels[drink.sweetness] || drink.sweetness); row.innerHTML = `<div><div class="entry-amount">${drink.amount_ml} ml <span class="entry-kind" data-kind="${drink.drink_type}"><span class="dot"></span>${typeMap[drink.drink_type] || "Other"}</span></div><div class="entry-time">${localTime}${localTime ? " · " : ""}<span class="entry-details">${details.join(" · ")}</span></div></div><button class="remove" data-delete="${drink.id}">REMOVE</button>`; entries.append(row); }
 }
 function renderCalendar() {
   const month = state.calendarMonth;
@@ -127,9 +124,8 @@ function renderAnalysis(data) {
   document.querySelector("#analysis-progress").textContent = `${data.entry_count} ${data.entry_count === 1 ? "entry" : "entries"} · ${Math.round((data.total_ml / data.goal_ml) * 100)}% of current target`;
   document.querySelector("#next-day").disabled = data.date >= state.today.date;
   document.querySelectorAll("[data-breakdown]").forEach(button => { const active = button.dataset.breakdown === state.analysisBreakdown; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
-  document.querySelector("#mix-caption").textContent = state.analysisBreakdown === "temperature" ? "By temperature" : "By drink type";
-  if (state.analysisBreakdown === "temperature") renderBreakdown(data.temperature_breakdown_ml, temperatureLabels, temperatureColors);
-  else renderBreakdown(data.breakdown_ml, typeMap, typeColors);
+  if (state.analysisBreakdown === "temperature") renderBreakdown(data.temperature_breakdown_ml, temperatureLabels);
+  else renderBreakdown(data.breakdown_ml, typeMap);
   if (state.calendarMonth === monthKey(data.date)) renderCalendar();
 }
 async function selectDate(value) { const [day, history] = await Promise.all([request(`/day?date=${encodeURIComponent(value)}`), request(`/history?days=7&end=${encodeURIComponent(value)}`)]); renderAnalysis(day); renderHistory(history); if (state.calendarMonth !== monthKey(value)) await loadCalendar(monthKey(value)); }
